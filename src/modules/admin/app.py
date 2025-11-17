@@ -50,6 +50,7 @@ class AdminApp(Admin):
     async def index(self, request: Request) -> Response:
         """Index route which can be overridden to create dashboards."""
         settings = get_app_settings()
+        logger.info(f"[{request.method}] Admin counter: debug mode '%s'", settings.flags.debug_mode)
         async with SASessionUOW() as uow:
             dashboard_stat = await AdminCounter().get_stat(session=uow.session)
 

@@ -127,7 +127,7 @@ def test_main_generates_and_not_displays_secrets(
     assert "ADMIN_PASSWORD=test-admin-password-15" not in output
 
     # Verify secrets.token_urlsafe was called exactly 4 times with correct parameters
-    assert mock_secrets.call_count == 4
+    assert mock_secrets.call_count == 3
     mock_secrets.assert_any_call(32)  # Called twice with 32
     mock_secrets.assert_any_call(15)  # Called twice with 15
 

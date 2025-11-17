@@ -299,7 +299,7 @@ class TestTokenRepository:
 
             # Check log calls
             assert mock_logger.info.call_count == 2
-            mock_logger.info.assert_any_call("[DB] %s tokens: %r", "Activating", [1, 2, 3])
+            mock_logger.info.assert_any_call("[DB] %s %i tokens: %r", "Activating", 3, [1, 2, 3])
             mock_logger.info.assert_any_call("[DB] %s %d tokens", "Activated", 3)
 
     @pytest.mark.asyncio
@@ -319,7 +319,7 @@ class TestTokenRepository:
 
             # Check log calls
             assert mock_logger.info.call_count == 2
-            mock_logger.info.assert_any_call("[DB] %s tokens: %r", "Deactivating", [1, 2, 3])
+            mock_logger.info.assert_any_call("[DB] %s %i tokens: %r", "Deactivating", 3, [1, 2, 3])
             mock_logger.info.assert_any_call("[DB] %s %d tokens", "Deactivated", 2)
 
     @pytest.mark.asyncio

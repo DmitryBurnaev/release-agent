@@ -172,7 +172,7 @@ class TestTokenAdminViewOperations:
         mock_super_model_view_get_details.return_value = mock_token
         mock_cache.get.return_value = "raw-token-value"
 
-        result = await token_admin_view.get_object_for_details(value=mock_token.id)
+        result = await token_admin_view.get_object_for_details(request=mock_request)
 
         assert result == mock_token
         assert result.raw_token == "raw-token-value"

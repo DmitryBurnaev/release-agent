@@ -7,7 +7,7 @@ from starlette.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.db import initialize_database
-from src.main import make_app, CodeAgentAPP
+from src.main import make_app, ReleaseAgentAPP
 from src.modules.auth.tokens import make_api_token
 from src.settings import AppSettings, get_app_settings
 from pydantic import SecretStr
@@ -41,7 +41,7 @@ def minimal_env_vars() -> Generator[None, Any, None]:
 
 
 @pytest.fixture(autouse=True)
-async def test_app(app_settings_test: AppSettings) -> AsyncGenerator[CodeAgentAPP, Any]:
+async def test_app(app_settings_test: AppSettings) -> AsyncGenerator[ReleaseAgentAPP, Any]:
     test_app = make_app(settings=app_settings_test)
     test_app.dependency_overrides[get_app_settings] = lambda: test_app.settings
     await initialize_database()
@@ -86,7 +86,7 @@ def mock_db_api_token__active() -> Generator[MockAPIToken, Any, None]:
 
 @pytest.fixture
 def client(
-    test_app: CodeAgentAPP,
+    test_app: ReleaseAgentAPP,
     mock_db_api_token__active: MockAPIToken,
     auth_test_token: str,
 ) -> Generator[TestClient, Any, None]:

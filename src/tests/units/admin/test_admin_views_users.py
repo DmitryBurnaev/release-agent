@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException
 
 from src.db.models import User
-from src.main import CodeAgentAPP
+from src.main import ReleaseAgentAPP
 from src.modules.admin.views.base import FormDataType
 from src.tests.mocks import MockUser
 from src.modules.admin.views.users import UserAdminView, UserAdminForm
@@ -27,7 +27,7 @@ def mock_uow() -> Generator[AsyncMock, Any, None]:
 
 
 @pytest.fixture
-def user_admin_view(test_app: CodeAgentAPP) -> UserAdminView:
+def user_admin_view(test_app: ReleaseAgentAPP) -> UserAdminView:
     view = UserAdminView()
     view.app = test_app
     return view

@@ -1,6 +1,6 @@
 import logging
 import datetime
-from typing import cast, Any
+from typing import cast
 
 from sqladmin import action
 from starlette.datastructures import URL
@@ -86,7 +86,7 @@ class TokenAdminView(BaseModelView, model=Token):
     @action(
         name="activate",
         label="Activate",
-        add_in_detail=True,
+        add_in_detail=False,
         add_in_list=True,
         confirmation_message="Are you sure you want to activate selected tokens?",
     )
