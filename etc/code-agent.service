@@ -1,0 +1,18 @@
+# copy this file to /etc/systemd/system/release-agent.service
+
+[Unit]
+Description=Release Agent Service
+Requires=docker.service
+After=docker.service
+
+[Service]
+User=release-agent-srv
+Group=release-agent-srv
+ExecStart=/opt/release-agent/bin/start
+ExecStop=/opt/release-agent/bin/stop
+Restart=on-failure
+RestartSec=20
+TimeoutStopSec=180
+
+[Install]
+WantedBy=multi-user.target
