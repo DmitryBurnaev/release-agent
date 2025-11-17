@@ -23,6 +23,7 @@ class FlagsSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="FLAG_")
 
     offline_mode: bool = False
+    debug_mode: bool = False
 
 
 class AdminSettings(BaseSettings):

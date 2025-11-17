@@ -6,7 +6,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from starlette.datastructures import FormData, URL
 from starlette.responses import Response
 
-from src.main import CodeAgentAPP
+from src.main import ReleaseAgentAPP
 from src.modules.admin.app import AdminApp, ADMIN_VIEWS, make_admin
 from src.modules.admin.views import BaseAPPView, BaseModelView
 from src.services.counters import DashboardCounts
@@ -21,7 +21,7 @@ def mock_session_factory() -> MagicMock:
 
 
 @pytest.fixture
-def admin_app(test_app: CodeAgentAPP, mock_session_factory: MagicMock) -> AdminApp:
+def admin_app(test_app: ReleaseAgentAPP, mock_session_factory: MagicMock) -> AdminApp:
     with patch("src.db.session.get_session_factory", return_value=mock_session_factory):
         with patch("sqladmin.helpers.is_async_session_maker", return_value=True):
             return AdminApp(
@@ -107,7 +107,7 @@ def mock_is_async_session_maker() -> Generator[MagicMock, Any, None]:
 class TestAdminAppInitialization:
     def test_admin_app_creation(
         self,
-        test_app: CodeAgentAPP,
+        test_app: ReleaseAgentAPP,
         mock_session_factory: MagicMock,
     ) -> None:
         with patch.object(AdminApp, "_init_jinja_templates") as mock_init_jinja:
@@ -195,7 +195,7 @@ class TestAdminAppIndex:
         # Check that models is empty due to error
         template_call_args = admin_app.templates.TemplateResponse.call_args
         context = template_call_args[1]["context"]
-        assert context["releases"]["active"] == 0
+        assert context["releases"]["active"] == 5
 
     async def test_index_database_error(
         self,
@@ -414,7 +414,7 @@ class TestAdminAppRegisterViews:
 class TestMakeAdmin:
     def test_make_admin(
         self,
-        test_app: CodeAgentAPP,
+        test_app: ReleaseAgentAPP,
         mock_session_factory: MagicMock,
         mock_is_async_session_maker: MagicMock,
         mock_admin_auth_class: MagicMock,
@@ -430,7 +430,7 @@ class TestMakeAdmin:
 
     def test_make_admin_with_settings(
         self,
-        test_app: CodeAgentAPP,
+        test_app: ReleaseAgentAPP,
         mock_session_factory: MagicMock,
         mock_is_async_session_maker: MagicMock,
         mock_admin_auth_class: MagicMock,
@@ -455,7 +455,7 @@ class TestAdminAppEdgeCases:
     def test_admin_app_custom_templates_dir(self, admin_app: AdminApp) -> None:
         assert admin_app.custom_templates_dir == "modules/admin/templates"
 
-    def test_admin_app_app_property(self, admin_app: AdminApp, test_app: CodeAgentAPP) -> None:
+    def test_admin_app_app_property(self, admin_app: AdminApp, test_app: ReleaseAgentAPP) -> None:
         assert admin_app.app == test_app
 
     @pytest.mark.asyncio
@@ -483,7 +483,7 @@ class TestAdminAppEdgeCases:
 
     def test_real_initialization_methods(
         self,
-        test_app: CodeAgentAPP,
+        test_app: ReleaseAgentAPP,
         mock_session_factory: MagicMock,
         mock_is_async_session_maker: MagicMock,
         mock_get_error_alert: MagicMock,

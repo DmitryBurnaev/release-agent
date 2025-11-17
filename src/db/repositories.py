@@ -7,9 +7,10 @@ from typing import (
     Any,
     Sequence,
     ParamSpec,
+    cast,
 )
 
-from sqlalchemy import select, BinaryExpression, delete, Select, update
+from sqlalchemy import select, BinaryExpression, delete, Select, update, CursorResult
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import SQLCoreOperations
@@ -142,11 +143,18 @@ class TokenRepository(BaseRepository[Token]):
     async def set_active(self, token_ids: Sequence[int | str], is_active: bool) -> None:
         """Set active status for tokens by their IDs"""
         logger.info(
-            "[DB] %s tokens: %r", "Deactivating" if not is_active else "Activating", token_ids
+            "[DB] %s %i tokens: %r",
+            "Deactivating" if not is_active else "Activating",
+            len(token_ids),
+            token_ids,
         )
         statement = update(self.model).filter(self.model.id.in_(int(id_) for id_ in token_ids))
-        result = await self.session.execute(statement, {"is_active": is_active})
+        result: CursorResult[Any] = cast(
+            CursorResult[Any], await self.session.execute(statement, {"is_active": is_active})
+        )
         await self.session.flush()
         logger.info(
-            "[DB] %s %d tokens", "Deactivated" if not is_active else "Activated", result.rowcount
+            "[DB] %s %d tokens",
+            "Deactivated" if not is_active else "Activated",
+            result.rowcount,
         )
