@@ -27,17 +27,17 @@ class DatabaseError(BaseApplicationError):
     """Database error"""
 
 
-class ReleaseLookupError(BaseApplicationError):
-    """Release lookup error"""
+class InstanceLookupError(BaseApplicationError):
+    """Instance lookup error"""
 
-    log_level: int = logging.ERROR
-    log_message: str = "Release lookup error"
+    log_level: int = logging.WARNING
+    log_message: str = "Instance not found"
     status_code: int = status.HTTP_404_NOT_FOUND
 
 
 class ReleaseRequestError(BaseApplicationError):
     """Release request error"""
 
-    log_level: int = logging.ERROR
+    log_level: int = logging.WARNING
     log_message: str = "Release request error"
     status_code: int = status.HTTP_400_BAD_REQUEST

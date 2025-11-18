@@ -255,12 +255,12 @@ When enabled, the Swagger documentation is available at `/docs` and ReDoc at `/r
 
 ### Admin Settings (AdminSettings, env prefix `ADMIN_`)
 
-| Variable                      | Type   |         Default | Required | Description                             |
-|-------------------------------|--------|----------------:|:--------:|-----------------------------------------|
-| ADMIN_USERNAME                | string |           admin |          | Default admin username                  |
+| Variable                      | Type   |            Default | Required | Description                             |
+|-------------------------------|--------|-------------------:|:--------:|-----------------------------------------|
+| ADMIN_USERNAME                | string |              admin |          | Default admin username                  |
 | ADMIN_PASSWORD                | string |     release-admin! |          | Default (initial) admin password        |
-| ADMIN_SESSION_EXPIRATION_TIME | int    |          172800 |          | Admin session expiration time (seconds) |
-| ADMIN_BASE_URL                | string |           /radm |          | Admin panel base URL                    |
+| ADMIN_SESSION_EXPIRATION_TIME | int    |             172800 |          | Admin session expiration time (seconds) |
+| ADMIN_BASE_URL                | string |              /radm |          | Admin panel base URL                    |
 | ADMIN_TITLE                   | string | releaseAgent Admin |          | Admin panel title                       |
 
 ### Logging Settings (LogSettings, env prefix `LOG_`)
@@ -287,21 +287,10 @@ When enabled, the Swagger documentation is available at `/docs` and ReDoc at `/r
 | DB_PORT          | int    |               5432 |          | Database port     |
 | DB_USERNAME      | string |           postgres |          | Database username |
 | DB_PASSWORD      | string |           postgres |          | Database password |
-| DB_DATABASE      | string |         release_agent |          | Database name     |
+| DB_DATABASE      | string |      release_agent |          | Database name     |
 | DB_POOL_MIN_SIZE | int    |                  - |          | Pool min size     |
 | DB_POOL_MAX_SIZE | int    |                  - |          | Pool max size     |
 | DB_ECHO          | bool   |              false |          | SQLAlchemy echo   |
-
-### CLI utilities
-
-These are used by `src/cli/simple_ai_client.py`.
-
-| Variable           | Type   | Default | Required | Description                                                             |
-|--------------------|--------|--------:|:--------:|-------------------------------------------------------------------------|
-| CLI_AI_API_TOKEN   | string |       - |   yes*   | Authorization token for the CLI (required unless `--token` is provided) |
-| CLI_AI_TEMPERATURE | float  |     0.7 |          | Sampling temperature                                                    |
-| CLI_AI_MAX_TOKENS  | int    |    1000 |          | Max tokens in completion                                                |
-| CLI_AI_TIMEOUT     | int    |    3600 |          | HTTP timeout (seconds)                                                  |
 
 ### Container / Infra
 

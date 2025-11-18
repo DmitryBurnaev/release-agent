@@ -11,16 +11,17 @@ from typing import (
 )
 
 from sqlalchemy import select, BinaryExpression, delete, Select, update, CursorResult
-from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import SQLCoreOperations
 from sqlalchemy.sql.roles import ColumnsClauseRole
 
-from src.db.models import BaseModel, User, Token
+from src.db.models import BaseModel, User, Token, Release
+from src.exceptions import InstanceLookupError
 
 __all__ = (
     "UserRepository",
     "TokenRepository",
+    "ReleaseRepository",
 )
 ModelT = TypeVar("ModelT", bound=BaseModel)
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ class BaseRepository(Generic[ModelT]):
         """Selects instance by provided ID"""
         instance: ModelT | None = await self.first(instance_id)
         if not instance:
-            raise NoResultFound
+            raise InstanceLookupError(f"Instance with ID {instance_id} not found")
 
         return instance
 
@@ -93,6 +94,16 @@ class BaseRepository(Generic[ModelT]):
         statement = delete(self.model).filter(self.model.id.in_(removing_ids))
         await self.session.execute(statement)
 
+    async def update_by_ids(self, updating_ids: Sequence[int], value: dict[str, Any]) -> None:
+        """Update the instances by their IDs"""
+        logger.info("[DB] Updating %i instances: %r", len(updating_ids), updating_ids)
+        statement = update(self.model).filter(self.model.id.in_(updating_ids))
+        result: CursorResult[Any] = cast(
+            CursorResult[Any], await self.session.execute(statement, value)
+        )
+        await self.session.flush()
+        logger.info("[DB] Updated %i instances", result.rowcount)
+
     def _prepare_statement(
         self,
         filters: dict[str, FilterT],
@@ -140,7 +151,7 @@ class TokenRepository(BaseRepository[Token]):
 
         return filtered_tokens[0]
 
-    async def set_active(self, token_ids: Sequence[int | str], is_active: bool) -> None:
+    async def set_active(self, token_ids: Sequence[int], is_active: bool) -> None:
         """Set active status for tokens by their IDs"""
         logger.info(
             "[DB] %s %i tokens: %r",
@@ -148,13 +159,26 @@ class TokenRepository(BaseRepository[Token]):
             len(token_ids),
             token_ids,
         )
-        statement = update(self.model).filter(self.model.id.in_(int(id_) for id_ in token_ids))
-        result: CursorResult[Any] = cast(
-            CursorResult[Any], await self.session.execute(statement, {"is_active": is_active})
+        await self.update_by_ids(token_ids, {"is_active": is_active})
+
+
+class ReleaseRepository(BaseRepository[Release]):
+    """Release's repository."""
+
+    model = Release
+
+    async def get_active_releases(self) -> list[Release]:
+        """Get all active releases ordered by release_date descending"""
+        logger.debug("[DB] Getting active releases")
+        statement = (
+            select(self.model).filter_by(is_active=True).order_by(self.model.release_date.desc())
         )
-        await self.session.flush()
+        result = await self.session.execute(statement)
+        return [row[0] for row in result.fetchall()]
+
+    async def set_active(self, release_ids: Sequence[int], is_active: bool) -> None:
+        """Set active status for releases by their IDs"""
         logger.info(
-            "[DB] %s %d tokens",
-            "Deactivated" if not is_active else "Activated",
-            result.rowcount,
+            "[DB] %s releases: %r", "Deactivating" if not is_active else "Activating", release_ids
         )
+        await self.update_by_ids(release_ids, {"is_active": is_active})

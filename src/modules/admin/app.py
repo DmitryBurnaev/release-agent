@@ -17,6 +17,7 @@ from src.modules.admin.views import (
     BaseModelView,
     UserAdminView,
     TokenAdminView,
+    ReleaseAdminView,
 )
 from src.db import session as db_session
 from src.services.counters import AdminCounter
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
 ADMIN_VIEWS: tuple[type[BaseView], ...] = (
     UserAdminView,
     TokenAdminView,
+    ReleaseAdminView,
 )
 
 logger = logging.getLogger(__name__)
