@@ -2,6 +2,7 @@ import time
 import logging
 from typing import Protocol, Any, TypeAlias
 
+from src.constants import CACHE_KEY_ACTIVE_RELEASES
 from src.utils import singleton
 
 logger = logging.getLogger("cache")
@@ -75,3 +76,10 @@ class InMemoryCache(CacheProtocol):
         elif key in self._data:
             del self._data[key]
             del self._last_update[key]
+
+
+def invalidate_release_cache() -> None:
+    """Invalidate cache for active releases"""
+    cache: CacheProtocol = InMemoryCache()
+    cache.invalidate(CACHE_KEY_ACTIVE_RELEASES)
+    logger.debug("[CACHE] Invalidated: %s", CACHE_KEY_ACTIVE_RELEASES)
