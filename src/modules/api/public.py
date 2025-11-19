@@ -1,14 +1,14 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
-from src.constants import CACHE_KEY_ACTIVE_RELEASES
-from src.models import ReleasePublicResponse
+from src.constants import CACHE_KEY_ACTIVE_RELEASES_PAGE
+from src.models import ReleasePublicResponse, PaginatedResponse
 from src.modules.api import ErrorHandlingBaseRoute
 from src.db.repositories import ReleaseRepository
 from src.db.services import SASessionUOW
-from src.services.cache import CacheProtocol, InMemoryCache
+from src.services.cache import CacheProtocol, get_cache
 
 logger = logging.getLogger(__name__)
 __all__ = ("public_router",)
@@ -22,50 +22,59 @@ public_router = APIRouter(
 )
 
 
-@public_router.get("/", response_model=list[ReleasePublicResponse])
-async def get_active_releases() -> list[ReleasePublicResponse]:
-    """Get list of active releases (public endpoint, no authentication required)"""
-    logger.debug("[API] Public: Getting active releases")
+@public_router.get("/", response_model=PaginatedResponse[ReleasePublicResponse])
+async def get_active_releases(
+    offset: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(10, ge=1, le=100, description="Maximum number of items to return"),
+) -> PaginatedResponse[ReleasePublicResponse]:
+    """Get paginated list of active releases (public endpoint, no authentication required)"""
+    logger.debug("[API] Public: Getting active releases (offset=%i, limit=%i)", offset, limit)
     # TODO: enhance cache to use Redis or other cache backend
-    cache: CacheProtocol = InMemoryCache()
-    _releases = cache.get(CACHE_KEY_ACTIVE_RELEASES)
-    cached_releases: list[dict[str, Any]] = (
-        _releases if _releases and isinstance(_releases, list) else []
+    cache: CacheProtocol = get_cache()
+    cache_key = CACHE_KEY_ACTIVE_RELEASES_PAGE.format(offset=offset, limit=limit)
+    cached_data = cache.get(cache_key)
+    cached_result: dict[str, Any] | None = (
+        cached_data if cached_data and isinstance(cached_data, dict) else None
     )
-    response_result: list[ReleasePublicResponse] = []
 
-    if cached_releases:
+    if cached_result:
         logger.debug(
-            "[API] Public: Releases found in cache: %i releases | latest: %s",
-            len(cached_releases),
-            cached_releases[-1].get("version"),
+            "[API] Public: Releases found in cache (offset=%i, limit=%i): %i releases",
+            offset,
+            limit,
+            len(cached_result.get("items", [])),
         )
-        response_result = [
-            ReleasePublicResponse.model_validate(_release) for _release in cached_releases
-        ]
+        return PaginatedResponse[ReleasePublicResponse].model_validate(cached_result)
 
-    if not response_result:
-        logger.debug("[API] Public: No releases in cache, getting from database")
-        async with SASessionUOW() as uow:
-            repo = ReleaseRepository(session=uow.session)
-            response_result = [
-                ReleasePublicResponse.model_validate(db_release)
-                for db_release in await repo.get_active_releases()
-            ]
-            cache_releases = [
-                ReleasePublicResponse.model_dump(_release) for _release in response_result
-            ]
-            cache.set(CACHE_KEY_ACTIVE_RELEASES, cache_releases)
-            logger.info(
-                "[API] Public: Releases cached: %i releases | latest: %s",
-                len(cache_releases),
-                cache_releases[-1].get("version"),
-            )
+    logger.debug(
+        "[API] Public: No releases in cache (offset=%i, limit=%i), getting from database",
+        offset,
+        limit,
+    )
+    # TODO: refactor to use service layer
+    async with SASessionUOW() as uow:
+        repo = ReleaseRepository(session=uow.session)
+        releases, total = await repo.get_active_releases(offset=offset, limit=limit)
+        response_releases = [ReleasePublicResponse.model_validate(release) for release in releases]
+        cache.set(cache_key, response_releases)
+        logger.info(
+            "[API] Public: Releases cached: %i releases | total: %i",
+            len(response_releases),
+            total,
+        )
 
     logger.info(
-        "[API] Public: Releases asked: found %i releases (%s) | latest: %s",
-        len(response_result),
-        "cached" if cached_releases else "retrieved",
-        response_result[-1].version if response_result else None,
+        "[API] Public: Releases asked (offset=%i, limit=%i): found %i releases | total: %i | latest: %s",
+        offset,
+        limit,
+        len(response_releases),
+        total,
+        response_releases[-1].version if response_releases else "N/A",
+    )
+    response_result = PaginatedResponse[ReleasePublicResponse](
+        items=response_releases,
+        total=total,
+        offset=offset,
+        limit=limit,
     )
     return response_result

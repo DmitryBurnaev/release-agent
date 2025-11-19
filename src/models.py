@@ -1,6 +1,8 @@
-from typing import Optional
+from typing import Optional, Generic, TypeVar
 from datetime import date, datetime
 from pydantic import BaseModel, Field
+
+T = TypeVar("T")
 
 __all__ = (
     "HealthCheck",
@@ -10,6 +12,7 @@ __all__ = (
     "ReleasePublicResponse",
     "ReleaseCreate",
     "ReleaseUpdate",
+    "PaginatedResponse",
 )
 
 
@@ -85,3 +88,15 @@ class ReleaseCreate(ReleaseBaseModify):
 
 class ReleaseUpdate(ReleaseBaseModify):
     """Release update model for API"""
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """Paginated response model for API"""
+
+    items: list[T]
+    total: int
+    offset: int
+    limit: int
+
+    class Config:
+        from_attributes = True

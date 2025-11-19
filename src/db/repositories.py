@@ -10,7 +10,7 @@ from typing import (
     cast,
 )
 
-from sqlalchemy import select, BinaryExpression, delete, Select, update, CursorResult
+from sqlalchemy import select, BinaryExpression, delete, Select, update, CursorResult, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import SQLCoreOperations
 from sqlalchemy.sql.roles import ColumnsClauseRole
@@ -167,14 +167,70 @@ class ReleaseRepository(BaseRepository[Release]):
 
     model = Release
 
-    async def get_active_releases(self) -> list[Release]:
-        """Get all active releases ordered by published_at descending"""
-        logger.debug("[DB] Getting active releases")
-        statement = (
-            select(self.model).filter_by(is_active=True).order_by(self.model.published_at.desc())
+    async def get_active_releases(
+        self, offset: int = 0, limit: int = 10
+    ) -> tuple[list[Release], int]:
+        """Get paginated active releases ordered by published_at descending.
+
+        Args:
+            offset: Number of items to skip
+            limit: Maximum number of items to return
+
+        Returns:
+            Tuple of (releases list, total count)
+        """
+        logger.debug("[DB] Getting active releases (offset=%i, limit=%i)", offset, limit)
+
+        # Get total count
+        total = (
+            await self.session.scalar(select(func.count(self.model.id)).filter_by(is_active=True))
+            or 0
         )
-        result = await self.session.execute(statement)
-        return [row[0] for row in result.fetchall()]
+
+        # Get paginated releases
+        releases = await self.session.scalars(
+            select(self.model)
+            .filter_by(is_active=True)
+            .order_by(self.model.published_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return list(releases.all()), total
+
+    async def get_all_paginated(
+        self, offset: int = 0, limit: int = 10, **filters: FilterT
+    ) -> tuple[list[Release], int]:
+        """Get paginated releases with optional filters.
+
+        Args:
+            offset: Number of items to skip
+            limit: Maximum number of items to return
+            **filters: Optional filters to apply
+
+        Returns:
+            Tuple of (releases list, total count)
+        """
+        logger.debug("[DB] Getting paginated releases (offset=%i, limit=%i)", offset, limit)
+
+        # Prepare base statement for count
+        count_filters = filters.copy()
+        count_filters_stmts: list[BinaryExpression[bool]] = []
+        if (ids := count_filters.pop("ids", None)) and isinstance(ids, list):
+            count_filters_stmts.append(self.model.id.in_(ids))
+
+        # Get total count
+        count_statement = select(func.count(self.model.id)).filter_by(**count_filters)
+        if count_filters_stmts:
+            count_statement = count_statement.filter(*count_filters_stmts)
+        total = await self.session.scalar(count_statement) or 0
+
+        # Get paginated releases
+        statement = self._prepare_statement(filters=filters)
+        releases = await self.session.scalars(
+            statement.order_by(self.model.published_at.desc()).offset(offset).limit(limit)
+        )
+
+        return list(releases.all()), total
 
     async def set_active(self, release_ids: Sequence[int], is_active: bool) -> None:
         """Set active status for releases by their IDs"""
