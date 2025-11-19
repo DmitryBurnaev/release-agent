@@ -2,7 +2,7 @@ import time
 import logging
 from typing import Protocol, Any, TypeAlias
 
-from src.constants import CACHE_KEY_ACTIVE_RELEASES
+from src.constants import CACHE_KEY_ACTIVE_RELEASES_PAGE
 from src.utils import singleton
 
 logger = logging.getLogger("cache")
@@ -11,7 +11,6 @@ CacheValueType: TypeAlias = str | list[dict[str, Any]] | dict[str, Any]
 
 
 class CacheProtocol(Protocol):
-
     def get(self, key: str) -> CacheValueType | None:
         pass
 
@@ -19,6 +18,9 @@ class CacheProtocol(Protocol):
         pass
 
     def invalidate(self, key: str | None = None) -> None:
+        pass
+
+    def invalidate_pattern(self, prefix: str) -> None:
         pass
 
 
@@ -77,9 +79,31 @@ class InMemoryCache(CacheProtocol):
             del self._data[key]
             del self._last_update[key]
 
+    def invalidate_pattern(self, prefix: str) -> None:
+        """Invalidate all cache keys starting with the prefix.
+
+        Args:
+            prefix: Prefix to match keys (e.g., "active_releases_page_")
+        """
+        keys_to_remove = [key for key in self._data.keys() if key.startswith(prefix)]
+        for key in keys_to_remove:
+            if key in self._data:
+                del self._data[key]
+            if key in self._last_update:
+                del self._last_update[key]
+        if keys_to_remove:
+            logger.debug("Cache: invalidated %i keys with prefix %s", len(keys_to_remove), prefix)
+
+
+def get_cache() -> CacheProtocol:
+    """Get cache instance."""
+    return InMemoryCache()
+
 
 def invalidate_release_cache() -> None:
-    """Invalidate cache for active releases"""
-    cache: CacheProtocol = InMemoryCache()
-    cache.invalidate(CACHE_KEY_ACTIVE_RELEASES)
-    logger.debug("[CACHE] Invalidated: %s", CACHE_KEY_ACTIVE_RELEASES)
+    """Invalidate cache for active releases (all pages)"""
+    prefix = CACHE_KEY_ACTIVE_RELEASES_PAGE.replace("{offset}", "").replace("{limit}", "")
+    # Invalidate all paginated cache keys
+    cache: CacheProtocol = get_cache()
+    cache.invalidate_pattern(prefix)
+    logger.debug("[CACHE] Invalidated: all paginated pages with prefix %s", prefix)

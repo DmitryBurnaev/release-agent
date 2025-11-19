@@ -1,7 +1,13 @@
 import logging
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
-from src.models import ReleaseCreate, ReleaseUpdate, ReleaseDetailsResponse, ReleaseResponse
+from src.models import (
+    ReleaseCreate,
+    ReleaseUpdate,
+    ReleaseDetailsResponse,
+    ReleaseResponse,
+    PaginatedResponse,
+)
 from src.modules.api import ErrorHandlingBaseRoute
 from src.db.repositories import ReleaseRepository
 from src.db.services import SASessionUOW
@@ -22,17 +28,25 @@ admin_router = APIRouter(
 )
 
 
-@admin_router.get("/", response_model=list[ReleaseResponse])
+@admin_router.get("/", response_model=PaginatedResponse[ReleaseResponse])
 async def list_releases(
+    offset: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(10, ge=1, le=100, description="Maximum number of items to return"),
     uow: SASessionUOW = Depends(get_uow_with_session),
-) -> list[ReleaseResponse]:
-    """Get list of all releases (admin endpoint, requires authentication)"""
+) -> PaginatedResponse[ReleaseResponse]:
+    """Get paginated list of all releases (admin endpoint, requires authentication)"""
 
-    logger.debug("[API] Getting list of all releases")
+    logger.debug("[API] Getting paginated list of releases (offset=%i, limit=%i)", offset, limit)
     async with uow:
         repo = ReleaseRepository(session=uow.session)
-        releases = await repo.all()
-        return [ReleaseResponse.model_validate(release) for release in releases or []]
+        releases, total = await repo.get_all_paginated(offset=offset, limit=limit)
+
+        return PaginatedResponse[ReleaseResponse](
+            items=[ReleaseResponse.model_validate(release) for release in releases],
+            total=total,
+            offset=offset,
+            limit=limit,
+        )
 
 
 @admin_router.get("/{release_id}/", response_model=ReleaseDetailsResponse)
