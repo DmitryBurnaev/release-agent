@@ -77,9 +77,7 @@ async def universal_exception_handler(request: Request, exc: Exception) -> JSONR
             "detail": "An internal error has been detected. We apologize for the inconvenience."
         }
 
-    exc_info = exc if logger.isEnabledFor(logging.DEBUG) else None
-    # Log the error
-    logger.log(log_level, log_message, extra=log_data, exc_info=exc_info)
+    logger.log(log_level, log_message, extra=log_data, exc_info=exc)
 
     return JSONResponse(
         status_code=status_code,

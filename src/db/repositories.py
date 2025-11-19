@@ -168,10 +168,10 @@ class ReleaseRepository(BaseRepository[Release]):
     model = Release
 
     async def get_active_releases(self) -> list[Release]:
-        """Get all active releases ordered by release_date descending"""
+        """Get all active releases ordered by published_at descending"""
         logger.debug("[DB] Getting active releases")
         statement = (
-            select(self.model).filter_by(is_active=True).order_by(self.model.release_date.desc())
+            select(self.model).filter_by(is_active=True).order_by(self.model.published_at.desc())
         )
         result = await self.session.execute(statement)
         return [row[0] for row in result.fetchall()]

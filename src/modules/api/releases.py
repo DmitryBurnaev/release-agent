@@ -1,7 +1,7 @@
 import logging
 from fastapi import APIRouter, Depends, status
 
-from src.models import ReleaseResponse, ReleaseCreate, ReleaseUpdate
+from src.models import ReleaseCreate, ReleaseUpdate, ReleaseDetailsResponse, ReleaseResponse
 from src.modules.api import ErrorHandlingBaseRoute
 from src.db.repositories import ReleaseRepository
 from src.db.services import SASessionUOW
@@ -35,11 +35,11 @@ async def list_releases(
         return [ReleaseResponse.model_validate(release) for release in releases or []]
 
 
-@admin_router.get("/{release_id}", response_model=ReleaseResponse)
+@admin_router.get("/{release_id}/", response_model=ReleaseDetailsResponse)
 async def get_release(
     release_id: int,
     uow: SASessionUOW = Depends(get_uow_with_session),
-) -> ReleaseResponse:
+) -> ReleaseDetailsResponse:
     """Get release by ID (admin endpoint, requires authentication)"""
 
     logger.debug("[API] Getting release by ID: '%s'", release_id)
@@ -47,34 +47,37 @@ async def get_release(
         repo = ReleaseRepository(session=uow.session)
         release = await repo.get(release_id)
 
-    return ReleaseResponse.model_validate(release)
+    return ReleaseDetailsResponse.model_validate(release)
 
 
-@admin_router.post("/", response_model=ReleaseResponse, status_code=status.HTTP_201_CREATED)
+@admin_router.post("/", response_model=ReleaseDetailsResponse, status_code=status.HTTP_201_CREATED)
 async def create_release(
     release_data: ReleaseCreate,
     uow: SASessionUOW = Depends(get_uow_with_session),
-) -> ReleaseResponse:
+) -> ReleaseDetailsResponse:
     """Create a new release (admin endpoint, requires authentication)"""
     async with uow:
         repo = ReleaseRepository(session=uow.session)
-        release_info = release_data.model_dump()
+        release_info = release_data.model_dump(exclude_unset=True)
         release_info.setdefault("is_active", False)
-        release_info.setdefault("release_date", utcnow())
-        release = await repo.create(value=release_data.model_dump())
+        # TODO: fix that! (default values should be provided in model)
+        release_info.setdefault("notes", "")
+        release_info.setdefault("url", "")
+        release_info.setdefault("published_at", utcnow())
+        release = await repo.create(value=release_info)
         uow.mark_for_commit()
 
     invalidate_release_cache()
     logger.info("[API] Release created: '%s'", release.version)
-    return ReleaseResponse.model_validate(release)
+    return ReleaseDetailsResponse.model_validate(release)
 
 
-@admin_router.put("/{release_id}", response_model=ReleaseResponse)
+@admin_router.put("/{release_id}/", response_model=ReleaseDetailsResponse)
 async def update_release(
     release_id: int,
     release_data: ReleaseUpdate,
     uow: SASessionUOW = Depends(get_uow_with_session),
-) -> ReleaseResponse:
+) -> ReleaseDetailsResponse:
     """Update release by ID (admin endpoint, requires authentication)"""
     async with uow:
         repo = ReleaseRepository(session=uow.session)
@@ -85,14 +88,14 @@ async def update_release(
 
     invalidate_release_cache()
     logger.info("[API] Release updated: '%s'", release)
-    return ReleaseResponse.model_validate(release)
+    return ReleaseDetailsResponse.model_validate(release)
 
 
-@admin_router.patch("/{release_id}/activate", response_model=ReleaseResponse)
+@admin_router.post("/{release_id}/activate/", response_model=ReleaseDetailsResponse)
 async def activate_release(
     release_id: int,
     uow: SASessionUOW = Depends(get_uow_with_session),
-) -> ReleaseResponse:
+) -> ReleaseDetailsResponse:
     """Activate release by ID (admin endpoint, requires authentication)"""
     logger.debug("[API] Activating release by ID: '%s'", release_id)
     async with uow:
@@ -103,14 +106,14 @@ async def activate_release(
 
     invalidate_release_cache()
     logger.info("[API] Release activated: '%s'", release.version)
-    return ReleaseResponse.model_validate(release)
+    return ReleaseDetailsResponse.model_validate(release)
 
 
-@admin_router.patch("/{release_id}/deactivate", response_model=ReleaseResponse)
+@admin_router.post("/{release_id}/deactivate/", response_model=ReleaseDetailsResponse)
 async def deactivate_release(
     release_id: int,
     uow: SASessionUOW = Depends(get_uow_with_session),
-) -> ReleaseResponse:
+) -> ReleaseDetailsResponse:
     """Deactivate release by ID (admin endpoint, requires authentication)"""
     logger.debug("[API] Deactivating release by ID: '%s'", release_id)
     async with uow:
@@ -121,10 +124,10 @@ async def deactivate_release(
 
     invalidate_release_cache()
     logger.info("[API] Release deactivated: '%s'", release.version)
-    return ReleaseResponse.model_validate(release)
+    return ReleaseDetailsResponse.model_validate(release)
 
 
-@admin_router.delete("/{release_id}", status_code=status.HTTP_204_NO_CONTENT)
+@admin_router.delete("/{release_id}/", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_release(
     release_id: int,
     uow: SASessionUOW = Depends(get_uow_with_session),

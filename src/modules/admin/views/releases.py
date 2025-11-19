@@ -20,12 +20,12 @@ class ReleaseAdminView(BaseModelView, model=Release):
     name = "Release"
     name_plural = "Releases"
     icon = "fa-solid fa-rocket"
-    column_list = (Release.id, Release.version, Release.release_date, Release.is_active)
+    column_list = (Release.id, Release.version, Release.published_at, Release.is_active)
     form_columns = (
         Release.version,
         Release.notes,
-        Release.url_link,
-        Release.release_date,
+        Release.url,
+        Release.published_at,
         Release.is_active,
     )
     column_formatters = {
@@ -35,8 +35,8 @@ class ReleaseAdminView(BaseModelView, model=Release):
         Release.id,
         Release.version,
         Release.notes,
-        Release.url_link,
-        Release.release_date,
+        Release.url,
+        Release.published_at,
         Release.is_active,
         Release.created_at,
         Release.updated_at,
