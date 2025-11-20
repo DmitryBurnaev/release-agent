@@ -2,6 +2,7 @@ import logging
 from typing import cast
 
 from sqladmin import action
+from wtforms import HiddenField
 from starlette.requests import Request
 from starlette.responses import Response, RedirectResponse
 
@@ -20,14 +21,24 @@ class ReleaseAdminView(BaseModelView, model=Release):
     name = "Release"
     name_plural = "Releases"
     icon = "fa-solid fa-rocket"
+    create_template = "release_create.html"
+    edit_template = "release_edit.html"
+    details_template = "release_details.html"
     column_list = (Release.id, Release.version, Release.published_at, Release.is_active)
     form_columns = (
         Release.version,
-        Release.notes,
-        Release.url,
         Release.published_at,
         Release.is_active,
+        Release.url,
+        Release.notes,
     )
+    column_labels = {
+        Release.version: "Версия",
+        Release.published_at: "Дата публикации",
+        Release.is_active: "Активен",
+        Release.url: "Ссылка на релиз",
+        Release.notes: "Примечания",
+    }
     column_formatters = {
         Release.id: lambda model, a: admin_get_link(cast(BaseModel, model), target="details")
     }
@@ -36,12 +47,13 @@ class ReleaseAdminView(BaseModelView, model=Release):
         Release.version,
         Release.notes,
         Release.url,
-        Release.published_at,
         Release.is_active,
+        Release.published_at,
         Release.created_at,
         Release.updated_at,
     )
     column_default_li = ()
+    form_overrides = dict(notes=HiddenField)
 
     @action(
         name="deactivate",

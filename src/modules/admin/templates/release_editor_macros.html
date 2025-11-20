@@ -1,0 +1,139 @@
+{# TOAST UI Editor macros for release forms #}
+
+{% macro editor_head() %}
+<!-- TOAST UI Editor CSS -->
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+{% endmacro %}
+
+{% macro viewer_head() %}
+<!-- TOAST UI Editor Viewer CSS -->
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor-viewer.min.css" />
+{% endmacro %}
+
+{% macro editor_script(default_value='## Что нового в этом релизе?') %}
+<!-- TOAST UI Editor JS -->
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function () {
+        const notesInput = document.querySelector('input[name="notes"]');
+        if (!notesInput) {
+            console.error('Notes input not found');
+            return;
+        }
+        const latestInput = document.querySelector('input[name="url"]');
+        if (!latestInput) {
+            console.error('Latest input not found');
+            return;
+        }
+        const initialValue = notesInput.value || '{{ default_value }}';
+
+        // Create editor container
+        const editorContainer = document.createElement('div');
+        editorContainer.id = 'notes-editor';
+        editorContainer.style.marginTop = '10px';
+
+        // Hide original input but keep it for form submission
+        notesInput.id = 'notes-hidden-field';
+
+        // Insert editor container at the end of the fieldset containing form fields
+        const fieldset = document.querySelector('fieldset.form-fieldset');
+        if (fieldset) {
+            fieldset.appendChild(editorContainer);
+        } else {
+            // fallback: insert after url input if fieldset not found
+            latestInput.parentNode.insertBefore(editorContainer, latestInput.nextSibling);
+        }
+
+        const editor = new toastui.Editor({
+            el: editorContainer,
+            previewStyle: 'vertical',
+            height: '500px',
+            initialValue: initialValue,
+            initialEditType: 'wysiwyg',
+            usageStatistics: false,
+            previewHighlight: false,
+        });
+        // Sync editor content to hidden input before form submission
+        const form = notesInput.closest('form');
+        if (form) {
+            form.addEventListener('submit', function () {
+                const markdown = editor.getMarkdown();
+                notesInput.value = markdown;
+            });
+        }
+    });
+</script>
+{% endmacro %}
+
+{% macro viewer_script() %}
+<!-- TOAST UI Editor Viewer JS -->
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-viewer.min.js"></script>
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function () {
+        // Find the notes field in the details view
+        // SQLAdmin renders details as a table, so we need to find the cell with notes content
+        const detailsTable = document.querySelector('table.table');
+        if (!detailsTable) {
+            return;
+        }
+
+        // Find the row containing notes - search by label text
+        const rows = detailsTable.querySelectorAll('tr');
+        let notesCell = null;
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const labelCell = row.querySelector('th');
+            if (labelCell) {
+                const labelText = labelCell.textContent.trim().toLowerCase();
+                // Check for "notes" in label (case-insensitive)
+                if (labelText.includes('notes') || labelText.includes('примечания')) {
+                    notesCell = row.querySelector('td');
+                    break;
+                }
+            }
+        }
+
+        if (!notesCell) {
+            return;
+        }
+
+        // Get notes content - preserve original HTML if any
+        const notesContent = notesCell.textContent.trim() || '';
+        if (!notesContent) {
+            return;
+        }
+
+        // Create viewer container
+        const viewerContainer = document.createElement('div');
+        viewerContainer.id = 'notes-viewer';
+        viewerContainer.style.marginTop = '10px';
+        viewerContainer.style.minHeight = '200px';
+
+        // Replace cell content with viewer
+        notesCell.innerHTML = '';
+        notesCell.appendChild(viewerContainer);
+
+        // Initialize TOAST UI Editor Viewer
+        // Try different initialization methods for compatibility
+        let viewer;
+        if (typeof toastui !== 'undefined' && toastui.Editor && toastui.Editor.factory) {
+            viewer = toastui.Editor.factory({
+                el: viewerContainer,
+                viewer: true,
+                initialValue: notesContent,
+            });
+        } else if (typeof Editor !== 'undefined' && Editor.factory) {
+            viewer = Editor.factory({
+                el: viewerContainer,
+                viewer: true,
+                initialValue: notesContent,
+            });
+        } else {
+            console.error('TOAST UI Editor Viewer not loaded');
+            // Fallback: show plain text
+            notesCell.textContent = notesContent;
+        }
+    });
+</script>
+{% endmacro %}
