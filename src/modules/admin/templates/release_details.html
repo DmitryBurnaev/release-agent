@@ -1,0 +1,12 @@
+{% extends "sqladmin/details.html" %}
+{% from "release_editor_macros.html" import viewer_head, viewer_script %}
+{% block head %}
+{{ viewer_head() }}
+{% endblock %}
+{% block content %}
+{{ super() }}
+{% endblock %}
+{% block tail %}
+{{ viewer_script() }}
+{{ super() }}
+{% endblock %}
