@@ -21,9 +21,9 @@ class ReleaseAdminView(BaseModelView, model=Release):
     name = "Release"
     name_plural = "Releases"
     icon = "fa-solid fa-rocket"
-    create_template = "release_create.html"
-    edit_template = "release_edit.html"
-    details_template = "release_details.html"
+    create_template = "releases/release_create.html"
+    edit_template = "releases/release_edit.html"
+    details_template = "releases/release_details.html"
     column_list = (Release.id, Release.version, Release.published_at, Release.is_active)
     form_columns = (
         Release.version,
@@ -37,10 +37,9 @@ class ReleaseAdminView(BaseModelView, model=Release):
         Release.published_at: "Дата публикации",
         Release.is_active: "Активен",
         Release.url: "Ссылка на релиз",
-        Release.notes: "Примечания",
     }
     column_formatters = {
-        Release.id: lambda model, a: admin_get_link(cast(BaseModel, model), target="details")
+        Release.id: lambda model, a: admin_get_link(cast(BaseModel, model), target="edit")
     }
     column_details_list = (
         Release.id,
