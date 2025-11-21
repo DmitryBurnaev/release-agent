@@ -3,8 +3,35 @@
 {% block head %}
 {{ viewer_head() }}
 {% endblock %}
+{% block style %}
+<style>
+    /* Set fixed table layout to enforce column widths */
+    div.table-responsive>table.table {
+        table-layout: fixed !important;
+        width: 100% !important;
+    }
+
+    /* Set the width of the first column in the releases details table */
+    div.table-responsive>table.table th:first-child,
+    div.table-responsive>table.table td:first-child {
+        width: 200px !important;
+        max-width: 200px !important;
+        min-width: 200px !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        word-wrap: break-word !important;
+    }
+
+    /* Second column takes remaining space */
+    div.table-responsive>table.table th:nth-child(2),
+    div.table-responsive>table.table td:nth-child(2) {
+        width: auto !important;
+    }
+</style>
+{% endblock %}
 {% block content %}
 {{ super() }}
+<input type="hidden" name="notes" id="notes-hidden-field" value="{{ model.notes if model.notes else '' }}">
 {% endblock %}
 {% block tail %}
 {{ viewer_script() }}

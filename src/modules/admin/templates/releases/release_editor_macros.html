@@ -7,6 +7,7 @@
 
 {% macro viewer_head() %}
 <!-- TOAST UI Editor Viewer CSS -->
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
 <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor-viewer.min.css" />
 {% endmacro %}
 
@@ -66,74 +67,47 @@
 {% endmacro %}
 
 {% macro viewer_script() %}
-<!-- TOAST UI Editor Viewer JS -->
-<script src="https://uicdn.toast.com/editor/latest/toastui-editor-viewer.min.js"></script>
+<!-- TOAST UI Editor JS (includes Viewer) -->
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
 <script type="text/javascript">
     document.addEventListener('DOMContentLoaded', function () {
-        // Find the notes field in the details view
-        // SQLAdmin renders details as a table, so we need to find the cell with notes content
-        const detailsTable = document.querySelector('table.table');
+        console.log('[Release Editor] Starting viewer initialization...');
+
+        // Try multiple selectors for table
+        let detailsTable = document.querySelector('table.table');
         if (!detailsTable) {
+            detailsTable = document.querySelector('table');
+        }
+        if (!detailsTable) {
+            console.error('[Release Editor] Table not found');
             return;
         }
+        console.log('[Release Editor] Table found:', detailsTable);
+        // Add a new row to the end of the detailsTable (tbody if present, else directly to table)
+        let parentForRows = detailsTable.querySelector('tbody') || detailsTable;
+        let newRow = parentForRows.insertRow(-1);
 
-        // Find the row containing notes - search by label text
-        const rows = detailsTable.querySelectorAll('tr');
-        let notesCell = null;
+        // First cell: label (you can localize or change as needed)
+        // Create a single cell that spans both columns.
+        let mergedCell = newRow.insertCell(0);
+        mergedCell.colSpan = 2;
+        // Container for the viewer will be created/appended after this.
+        let viewerDiv = document.createElement('div', { id: 'viewer', class: 'toastui-editor-viewer', });
+        mergedCell.appendChild(viewerDiv);
 
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const labelCell = row.querySelector('th');
-            if (labelCell) {
-                const labelText = labelCell.textContent.trim().toLowerCase();
-                // Check for "notes" in label (case-insensitive)
-                if (labelText.includes('notes') || labelText.includes('примечания')) {
-                    notesCell = row.querySelector('td');
-                    break;
-                }
-            }
-        }
-
-        if (!notesCell) {
-            return;
-        }
-
-        // Get notes content - preserve original HTML if any
-        const notesContent = notesCell.textContent.trim() || '';
-        if (!notesContent) {
-            return;
-        }
-
-        // Create viewer container
-        const viewerContainer = document.createElement('div');
-        viewerContainer.id = 'notes-viewer';
-        viewerContainer.style.marginTop = '10px';
-        viewerContainer.style.minHeight = '200px';
-
-        // Replace cell content with viewer
-        notesCell.innerHTML = '';
-        notesCell.appendChild(viewerContainer);
-
-        // Initialize TOAST UI Editor Viewer
-        // Try different initialization methods for compatibility
-        let viewer;
-        if (typeof toastui !== 'undefined' && toastui.Editor && toastui.Editor.factory) {
-            viewer = toastui.Editor.factory({
-                el: viewerContainer,
-                viewer: true,
-                initialValue: notesContent,
-            });
-        } else if (typeof Editor !== 'undefined' && Editor.factory) {
-            viewer = Editor.factory({
-                el: viewerContainer,
-                viewer: true,
-                initialValue: notesContent,
-            });
+        const notesHiddenField = document.querySelector('input[name="notes"]');
+        if (!notesHiddenField) {
+            console.error('[Release Editor] Notes hidden field not found');
+            notesContent = "## Notes Preview";  // fallback value
         } else {
-            console.error('TOAST UI Editor Viewer not loaded');
-            // Fallback: show plain text
-            notesCell.textContent = notesContent;
+            notesContent = notesHiddenField.value;
         }
+        const viewer = new toastui.Editor.factory({
+            el: viewerDiv,
+            initialValue: notesContent,
+            usageStatistics: false,
+            viewer: true,
+        });
     });
 </script>
 {% endmacro %}
