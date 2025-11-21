@@ -12,9 +12,24 @@ from src.db.models import BaseModel, Release
 from src.services.cache import invalidate_release_cache
 from src.utils import admin_get_link
 from src.modules.admin.views.base import BaseModelView
+import datetime
 
 __all__ = ("ReleaseAdminView",)
 logger = logging.getLogger(__name__)
+
+
+def format_date(obj: Release, prop: str) -> str:
+    value: datetime.datetime = getattr(obj, prop)
+    return value.strftime("%d.%m.%Y")
+
+
+def format_datetime(value: datetime.datetime, prop: str) -> str:
+    # TODO: refactor + local time
+    value: datetime.datetime = getattr(value, prop)
+    if value:
+        return value.strftime("%d.%m.%Y %H:%M")
+    else:
+        return ""
 
 
 class ReleaseAdminView(BaseModelView, model=Release):
@@ -37,19 +52,28 @@ class ReleaseAdminView(BaseModelView, model=Release):
         Release.published_at: "Дата публикации",
         Release.is_active: "Активен",
         Release.url: "Ссылка на релиз",
+        Release.created_at: "Создан",
+        Release.updated_at: "Изменен",
     }
     column_formatters = {
-        Release.id: lambda model, a: admin_get_link(cast(BaseModel, model), target="edit")
+        Release.id: lambda model, a: admin_get_link(cast(BaseModel, model), target="details"),
+        Release.published_at: format_date,
+        Release.created_at: format_datetime,
+        Release.updated_at: format_datetime,
+    }
+    column_formatters_detail = {
+        Release.published_at: format_date,
+        Release.created_at: format_datetime,
+        Release.updated_at: format_datetime,
     }
     column_details_list = (
         Release.id,
         Release.version,
-        Release.notes,
-        Release.url,
         Release.is_active,
         Release.published_at,
         Release.created_at,
         Release.updated_at,
+        Release.url,
     )
     column_default_li = ()
     form_overrides = dict(notes=HiddenField)
