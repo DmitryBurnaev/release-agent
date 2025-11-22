@@ -1,4 +1,5 @@
 import logging
+import urllib.parse
 from typing import Any, TYPE_CHECKING, cast
 
 from jinja2 import FileSystemLoader
@@ -56,10 +57,25 @@ class AdminApp(Admin):
         async with SASessionUOW() as uow:
             dashboard_stat = await AdminCounter().get_stat(session=uow.session)
 
+        def get_releases_url(qs: dict[str, str | list[str]] | None = None) -> str:
+            """Helper function to generate URL with query parameters"""
+            list_admin_url = f"{settings.admin.base_url}/release/list"
+            if qs:
+                qs_string = urllib.parse.urlencode(qs)
+                list_admin_url += f"?{qs_string}"
+
+            return list_admin_url
+
         context = {
-            "releases": {
+            "links": {
+                "total": get_releases_url(),
+                "active": get_releases_url({"active": "true"}),
+                "inactive": get_releases_url({"inactive": "true"}),
+            },
+            "counts": {
                 "total": dashboard_stat.total_releases,
                 "active": dashboard_stat.active_releases,
+                "inactive": dashboard_stat.inactive_releases,
             },
         }
         return await self.templates.TemplateResponse(request, "dashboard.html", context=context)

@@ -1,9 +1,11 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
+from zoneinfo import ZoneInfo
+import logging
 
 from fastapi import Depends
-from pydantic import SecretStr, Field
+from pydantic import SecretStr, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.settings.utils import prepare_settings
@@ -13,7 +15,7 @@ __all__ = (
     "get_app_settings",
     "AppSettings",
 )
-
+logger = logging.getLogger(__name__)
 APP_DIR = Path(__file__).parent.parent
 
 
@@ -54,6 +56,24 @@ class AppSettings(BaseSettings):
     admin: AdminSettings = Field(default_factory=AdminSettings)
     flags: FlagsSettings = Field(default_factory=FlagsSettings)
     log: LogSettings = Field(default_factory=LogSettings)
+    ui_timezone: ZoneInfo | None = Field(
+        default=None,
+        # validation_alias="UT_TIMEZONE",
+        description="UI timezone (from env UT_TIMEZONE, e.g. 'Europe/Moscow')",
+    )
+
+    @field_validator("ui_timezone", mode="before")
+    @classmethod
+    def validate_timezone(cls, v: str | None) -> ZoneInfo | None:
+        """Convert timezone string to ZoneInfo object"""
+        if v is None or v == "":
+            return None
+
+        try:
+            return ZoneInfo(v)
+        except Exception as exc:
+            logger.error("AppSettings: unable to convert timezone to ZoneInfo: %s", exc)
+            return None
 
 
 @lru_cache
