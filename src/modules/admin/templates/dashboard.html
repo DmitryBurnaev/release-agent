@@ -1,27 +1,101 @@
 {% extends "sqladmin/layout.html" %}
+{% block head %}
+    <style>
+        .dashboard-card {
+            border: 0;
+            max-width: 18rem;
+        }
+
+        .dashboard-card .card-header {
+            border-bottom: 0.1px solid;
+            padding-bottom: 5px;
+            padding-left: 10px;
+        }
+
+        .dashboard-card .card-body {
+            padding-left: 10px;
+        }
+
+        .dashboard-card a {
+            text-decoration: none !important;
+            color: inherit !important;
+        }
+
+        .dashboard-card a:hover {
+            text-decoration: none !important;
+            color: inherit !important;
+        }
+
+        .dashboard-card a:visited {
+            text-decoration: none !important;
+            color: inherit !important;
+        }
+
+        .dashboard-card a:active {
+            text-decoration: none !important;
+            color: inherit !important;
+        }
+
+        .dashboard-card:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+            transition: box-shadow 0.2s ease-in-out;
+        }
+
+        .card-total {
+            background-color: #f8f9fa !important;
+            color: #495057 !important;
+        }
+
+        .card-active {
+            background-color: #d1e7dd !important;
+            color: #0f5132 !important;
+        }
+
+        .card-nonactive {
+            background-color: #ecaeae36 !important;
+            color: #721c24 !important;
+        }
+
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="col-12">
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">ReleaseAgent Admin</h3>
+            <h3 class="card-title">Releases</h3>
         </div>
         <div class="card-body border-bottom py-3">
             <div class="row">
-                <div class="card text-bg-light col-2 mb-2 m-2" style="max-width: 18rem;">
-                    <div class="card-header">
-                        <h3>Total Releases</h3>
-                    </div>
-                    <div class="card-body">
-                        <h5 class="card-title">{{ releases.total }}</h5>
-                    </div>
+                <div class="card col-2 mb-2 m-2 dashboard-card card-total">
+                    <a href="{{ links.total }}">
+                        <div class="card-header">
+                            <h3>Total</h3>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">{{ counts.total }}</h5>
+                        </div>
+                    </a>
                 </div>
-                <div class="card text-bg-success col-2 mb-2 m-2" style="max-width: 18rem;">
-                    <div class="card-header">
-                        <h3>Active Releases</h3>
-                    </div>
-                    <div class="card-body">
-                        <h5 class="card-title">{{ releases.active }}</h5>
-                    </div>
+                <div class="card col-2 mb-2 m-2 dashboard-card card-active">
+                    <a href="{{ links.active }}">
+                        <div class="card-header">
+                            <h3>Active</h3>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">{{ counts.active }}</h5>
+                        </div>
+                    </a>
+                </div>
+                <div class="card col-2 mb-2 m-2 dashboard-card card-nonactive">
+                    <a href="{{ links.inactive }}">
+                        <div class="card-header">
+                            <h3>Inactive</h3>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">{{ counts.inactive }}</h5>
+                        </div>
+                    </a>
                 </div>
             </div>
         </div>

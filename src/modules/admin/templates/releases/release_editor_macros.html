@@ -1,0 +1,113 @@
+{# TOAST UI Editor macros for release forms #}
+
+{% macro editor_head() %}
+<!-- TOAST UI Editor CSS -->
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+{% endmacro %}
+
+{% macro viewer_head() %}
+<!-- TOAST UI Editor Viewer CSS -->
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor-viewer.min.css" />
+{% endmacro %}
+
+{% macro editor_script(default_value='## Что нового в этом релизе?') %}
+<!-- TOAST UI Editor JS -->
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function () {
+        const notesInput = document.querySelector('input[name="notes"]');
+        if (!notesInput) {
+            console.error('Notes input not found');
+            return;
+        }
+        const latestInput = document.querySelector('input[name="url"]');
+        if (!latestInput) {
+            console.error('Latest input not found');
+            return;
+        }
+        const initialValue = notesInput.value || '{{ default_value }}';
+
+        // Create editor container
+        const editorContainer = document.createElement('div');
+        editorContainer.id = 'notes-editor';
+        editorContainer.style.marginTop = '10px';
+
+        // Hide original input but keep it for form submission
+        notesInput.id = 'notes-hidden-field';
+
+        // Insert editor container at the end of the fieldset containing form fields
+        const fieldset = document.querySelector('fieldset.form-fieldset');
+        if (fieldset) {
+            fieldset.appendChild(editorContainer);
+        } else {
+            // fallback: insert after url input if fieldset not found
+            latestInput.parentNode.insertBefore(editorContainer, latestInput.nextSibling);
+        }
+
+        const editor = new toastui.Editor({
+            el: editorContainer,
+            previewStyle: 'vertical',
+            height: '500px',
+            initialValue: initialValue,
+            initialEditType: 'wysiwyg',
+            usageStatistics: false,
+            previewHighlight: false,
+        });
+        // Sync editor content to hidden input before form submission
+        const form = notesInput.closest('form');
+        if (form) {
+            form.addEventListener('submit', function () {
+                const markdown = editor.getMarkdown();
+                notesInput.value = markdown;
+            });
+        }
+    });
+</script>
+{% endmacro %}
+
+{% macro viewer_script() %}
+<!-- TOAST UI Editor JS (includes Viewer) -->
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log('[Release Editor] Starting viewer initialization...');
+
+        // Try multiple selectors for table
+        let detailsTable = document.querySelector('table.table');
+        if (!detailsTable) {
+            detailsTable = document.querySelector('table');
+        }
+        if (!detailsTable) {
+            console.error('[Release Editor] Table not found');
+            return;
+        }
+        console.log('[Release Editor] Table found:', detailsTable);
+        // Add a new row to the end of the detailsTable (tbody if present, else directly to table)
+        let parentForRows = detailsTable.querySelector('tbody') || detailsTable;
+        let newRow = parentForRows.insertRow(-1);
+
+        // First cell: label (you can localize or change as needed)
+        // Create a single cell that spans both columns.
+        let mergedCell = newRow.insertCell(0);
+        mergedCell.colSpan = 2;
+        // Container for the viewer will be created/appended after this.
+        let viewerDiv = document.createElement('div', { id: 'viewer', class: 'toastui-editor-viewer', });
+        mergedCell.appendChild(viewerDiv);
+
+        const notesHiddenField = document.querySelector('input[name="notes"]');
+        if (!notesHiddenField) {
+            console.error('[Release Editor] Notes hidden field not found');
+            notesContent = "## Notes Preview";  // fallback value
+        } else {
+            notesContent = notesHiddenField.value;
+        }
+        const viewer = new toastui.Editor.factory({
+            el: viewerDiv,
+            initialValue: notesContent,
+            usageStatistics: false,
+            viewer: true,
+        });
+    });
+</script>
+{% endmacro %}

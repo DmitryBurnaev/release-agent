@@ -1,5 +1,6 @@
 """DB-specific module that provides specific operations on the database."""
 
+import dataclasses
 import logging
 from typing import (
     Generic,
@@ -10,23 +11,30 @@ from typing import (
     cast,
 )
 
-from sqlalchemy import select, BinaryExpression, delete, Select, update, CursorResult
-from sqlalchemy.exc import NoResultFound
+from sqlalchemy import select, BinaryExpression, delete, Select, update, CursorResult, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import SQLCoreOperations
 from sqlalchemy.sql.roles import ColumnsClauseRole
 
-from src.db.models import BaseModel, User, Token
+from src.db.models import BaseModel, User, Token, Release
+from src.exceptions import InstanceLookupError
 
 __all__ = (
     "UserRepository",
     "TokenRepository",
+    "ReleaseRepository",
 )
 ModelT = TypeVar("ModelT", bound=BaseModel)
 logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 RT = TypeVar("RT")
 type FilterT = int | str | list[int] | None
+
+
+@dataclasses.dataclass
+class ActiveReleasesStat:
+    active: int = 0
+    inactive: int = 0
 
 
 class BaseRepository(Generic[ModelT]):
@@ -41,7 +49,7 @@ class BaseRepository(Generic[ModelT]):
         """Selects instance by provided ID"""
         instance: ModelT | None = await self.first(instance_id)
         if not instance:
-            raise NoResultFound
+            raise InstanceLookupError(f"Instance with ID {instance_id} not found")
 
         return instance
 
@@ -93,6 +101,16 @@ class BaseRepository(Generic[ModelT]):
         statement = delete(self.model).filter(self.model.id.in_(removing_ids))
         await self.session.execute(statement)
 
+    async def update_by_ids(self, updating_ids: Sequence[int], value: dict[str, Any]) -> None:
+        """Update the instances by their IDs"""
+        logger.info("[DB] Updating %i instances: %r", len(updating_ids), updating_ids)
+        statement = update(self.model).filter(self.model.id.in_(updating_ids))
+        result: CursorResult[Any] = cast(
+            CursorResult[Any], await self.session.execute(statement, value)
+        )
+        await self.session.flush()
+        logger.info("[DB] Updated %i instances", result.rowcount)
+
     def _prepare_statement(
         self,
         filters: dict[str, FilterT],
@@ -140,7 +158,7 @@ class TokenRepository(BaseRepository[Token]):
 
         return filtered_tokens[0]
 
-    async def set_active(self, token_ids: Sequence[int | str], is_active: bool) -> None:
+    async def set_active(self, token_ids: Sequence[int], is_active: bool) -> None:
         """Set active status for tokens by their IDs"""
         logger.info(
             "[DB] %s %i tokens: %r",
@@ -148,13 +166,102 @@ class TokenRepository(BaseRepository[Token]):
             len(token_ids),
             token_ids,
         )
-        statement = update(self.model).filter(self.model.id.in_(int(id_) for id_ in token_ids))
-        result: CursorResult[Any] = cast(
-            CursorResult[Any], await self.session.execute(statement, {"is_active": is_active})
+        await self.update_by_ids(token_ids, {"is_active": is_active})
+
+
+class ReleaseRepository(BaseRepository[Release]):
+    """Release's repository."""
+
+    model = Release
+
+    async def group_by_active(self, **filters: FilterT) -> ActiveReleasesStat:
+        """Selects instances from DB"""
+        statement = self._prepare_statement(
+            filters=filters,
+            entities=[
+                self.model.is_active,
+                func.count("*"),
+            ],
+        ).group_by(self.model.is_active)
+
+        active_stat: ActiveReleasesStat = ActiveReleasesStat()
+        for r in await self.session.execute(statement):
+            is_active, count = r
+            if is_active:
+                active_stat.active = count
+            else:
+                active_stat.inactive = count
+
+        return active_stat
+
+    async def get_active_releases(
+        self, offset: int = 0, limit: int = 10
+    ) -> tuple[list[Release], int]:
+        """Get paginated active releases ordered by published_at descending.
+
+        Args:
+            offset: Number of items to skip
+            limit: Maximum number of items to return
+
+        Returns:
+            Tuple of (releases list, total count)
+        """
+        logger.debug("[DB] Getting active releases (offset=%i, limit=%i)", offset, limit)
+
+        # Get total count
+        total = (
+            await self.session.scalar(select(func.count(self.model.id)).filter_by(is_active=True))
+            or 0
         )
-        await self.session.flush()
+
+        # Get paginated releases
+        releases = await self.session.scalars(
+            select(self.model)
+            .filter_by(is_active=True)
+            .order_by(self.model.published_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return list(releases.all()), total
+
+    async def get_all_paginated(
+        self, offset: int = 0, limit: int = 10, **filters: FilterT
+    ) -> tuple[list[Release], int]:
+        """Get paginated releases with optional filters.
+
+        Args:
+            offset: Number of items to skip
+            limit: Maximum number of items to return
+            **filters: Optional filters to apply
+
+        Returns:
+            Tuple of (releases list, total count)
+        """
+        logger.debug("[DB] Getting paginated releases (offset=%i, limit=%i)", offset, limit)
+
+        # Prepare base statement for count
+        count_filters = filters.copy()
+        count_filters_stmts: list[BinaryExpression[bool]] = []
+        if (ids := count_filters.pop("ids", None)) and isinstance(ids, list):
+            count_filters_stmts.append(self.model.id.in_(ids))
+
+        # Get total count
+        count_statement = select(func.count(self.model.id)).filter_by(**count_filters)
+        if count_filters_stmts:
+            count_statement = count_statement.filter(*count_filters_stmts)
+        total = await self.session.scalar(count_statement) or 0
+
+        # Get paginated releases
+        statement = self._prepare_statement(filters=filters)
+        releases = await self.session.scalars(
+            statement.order_by(self.model.published_at.desc()).offset(offset).limit(limit)
+        )
+
+        return list(releases.all()), total
+
+    async def set_active(self, release_ids: Sequence[int], is_active: bool) -> None:
+        """Set active status for releases by their IDs"""
         logger.info(
-            "[DB] %s %d tokens",
-            "Deactivated" if not is_active else "Activated",
-            result.rowcount,
+            "[DB] %s releases: %r", "Deactivating" if not is_active else "Activating", release_ids
         )
+        await self.update_by_ids(release_ids, {"is_active": is_active})
