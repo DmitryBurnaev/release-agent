@@ -1,5 +1,6 @@
 """DB-specific module that provides specific operations on the database."""
 
+import dataclasses
 import logging
 from typing import (
     Generic,
@@ -28,6 +29,12 @@ logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 RT = TypeVar("RT")
 type FilterT = int | str | list[int] | None
+
+
+@dataclasses.dataclass
+class ActiveReleasesStat:
+    active: int = 0
+    inactive: int = 0
 
 
 class BaseRepository(Generic[ModelT]):
@@ -166,6 +173,26 @@ class ReleaseRepository(BaseRepository[Release]):
     """Release's repository."""
 
     model = Release
+
+    async def group_by_active(self, **filters: FilterT) -> ActiveReleasesStat:
+        """Selects instances from DB"""
+        statement = self._prepare_statement(
+            filters=filters,
+            entities=[
+                self.model.is_active,
+                func.count("*"),
+            ],
+        ).group_by(self.model.is_active)
+
+        active_stat: ActiveReleasesStat = ActiveReleasesStat()
+        for r in await self.session.execute(statement):
+            is_active, count = r
+            if is_active:
+                active_stat.active = count
+            else:
+                active_stat.inactive = count
+
+        return active_stat
 
     async def get_active_releases(
         self, offset: int = 0, limit: int = 10
