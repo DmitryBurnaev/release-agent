@@ -1,6 +1,6 @@
 from typing import Optional, Generic, TypeVar
 from datetime import date, datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 T = TypeVar("T")
 
@@ -33,26 +33,24 @@ class ErrorResponse(BaseModel):
 class ReleasePublicResponse(BaseModel):
     """Release public response model for API"""
 
+    model_config = ConfigDict(from_attributes=True)
+
     version: str
     notes: str
     url: str
     published_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class ReleaseBaseResponse(BaseModel):
     """Release details response model for API"""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     version: str
     url: str
     published_at: datetime
     is_active: bool
-
-    class Config:
-        from_attributes = True
 
 
 class ReleaseResponse(ReleaseBaseResponse):
@@ -62,12 +60,11 @@ class ReleaseResponse(ReleaseBaseResponse):
 class ReleaseDetailsResponse(ReleaseBaseResponse):
     """Release details response model for API"""
 
+    model_config = ConfigDict(from_attributes=True)
+
     notes: str
     created_at: datetime
     updated_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
 
 
 class ReleaseBaseModify(BaseModel):
@@ -93,10 +90,9 @@ class ReleaseUpdate(ReleaseBaseModify):
 class PaginatedResponse(BaseModel, Generic[T]):
     """Paginated response model for API"""
 
+    model_config = ConfigDict(from_attributes=True)
+
     items: list[T]
     total: int
     offset: int
     limit: int
-
-    class Config:
-        from_attributes = True

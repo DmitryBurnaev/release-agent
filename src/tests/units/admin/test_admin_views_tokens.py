@@ -75,9 +75,9 @@ def mock_uow() -> Generator[AsyncMock, Any, None]:
 
 @pytest.fixture
 def mock_cache() -> Generator[MagicMock, Any, None]:
-    with patch("src.modules.admin.views.tokens.InMemoryCache") as mock_cache_class:
+    with patch("src.services.cache.get_cache") as mock_cache_func:
         mock_cache = MagicMock()
-        mock_cache_class.return_value = mock_cache
+        mock_cache_func.return_value = mock_cache
         yield mock_cache
 
 
@@ -269,7 +269,7 @@ class TestTokenAdminViewSetActive:
 
         # Verify
         assert isinstance(result, RedirectResponse)
-        mock_token_repository.set_active.assert_called_once_with(["1", "2", "3"], is_active=True)
+        mock_token_repository.set_active.assert_called_once_with([1, 2, 3], is_active=True)
         mock_uow.commit.assert_called_once()
 
     @pytest.mark.asyncio
@@ -285,12 +285,10 @@ class TestTokenAdminViewSetActive:
         mock_uow.session = MagicMock()
         mock_token_repository.set_active.return_value = None
 
-        # Execute - should work with empty string
-        result = await token_admin_view._set_active(mock_request, is_active=True)
+        with pytest.raises(ValueError):
+            await token_admin_view._set_active(mock_request, is_active=True)
 
-        # Verify
-        assert isinstance(result, RedirectResponse)
-        mock_token_repository.set_active.assert_called_once_with([""], is_active=True)
+        mock_token_repository.set_active.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_set_active_empty_pks(
@@ -305,12 +303,10 @@ class TestTokenAdminViewSetActive:
         mock_uow.session = MagicMock()
         mock_token_repository.set_active.return_value = None
 
-        # Execute - should work with an empty list
-        result = await token_admin_view._set_active(mock_request, is_active=True)
+        with pytest.raises(ValueError):
+            await token_admin_view._set_active(mock_request, is_active=True)
 
-        # Verify
-        assert isinstance(result, RedirectResponse)
-        mock_token_repository.set_active.assert_called_once_with([""], is_active=True)
+        mock_token_repository.set_active.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_set_active_deactivate(
@@ -329,7 +325,7 @@ class TestTokenAdminViewSetActive:
 
         # Verify
         assert isinstance(result, RedirectResponse)
-        mock_token_repository.set_active.assert_called_once_with(["1", "2", "3"], is_active=False)
+        mock_token_repository.set_active.assert_called_once_with([1, 2, 3], is_active=False)
         mock_uow.commit.assert_called_once()
 
 
