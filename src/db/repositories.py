@@ -24,6 +24,9 @@ __all__ = (
     "TokenRepository",
     "ReleaseRepository",
 )
+
+from src.utils import utcnow
+
 ModelT = TypeVar("ModelT", bound=BaseModel)
 logger = logging.getLogger(__name__)
 P = ParamSpec("P")
@@ -208,20 +211,21 @@ class ReleaseRepository(BaseRepository[Release]):
         """
         logger.debug("[DB] Getting active releases (offset=%i, limit=%i)", offset, limit)
 
-        # Get total count
-        total = (
-            await self.session.scalar(select(func.count(self.model.id)).filter_by(is_active=True))
-            or 0
+        releases_criteria = (
+            self.model.is_active.is_(True),
+            self.model.published_at <= utcnow(),
         )
-
-        # Get paginated releases
         releases = await self.session.scalars(
             select(self.model)
-            .filter_by(is_active=True)
+            .filter(*releases_criteria)
             .order_by(self.model.published_at.desc())
             .offset(offset)
             .limit(limit)
         )
+
+        # total calculating
+        count_query = select(func.count(self.model.id)).filter(*releases_criteria)
+        total = await self.session.scalar(count_query) or 0
         return list(releases.all()), total
 
     async def get_all_paginated(

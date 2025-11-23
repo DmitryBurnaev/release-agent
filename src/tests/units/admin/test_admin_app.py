@@ -136,8 +136,9 @@ class TestAdminAppIndex:
     @pytest.fixture
     def mock_dashboard_stat(self) -> MagicMock:
         mock_stat = MagicMock()
-        mock_stat.total_releases = 10
+        mock_stat.total_releases = 12
         mock_stat.active_releases = 5
+        mock_stat.inactive_releases = 7
         return mock_stat
 
     @pytest.fixture
@@ -170,8 +171,18 @@ class TestAdminAppIndex:
         assert "context" in template_call_args[1]
 
         context = template_call_args[1]["context"]
-        assert context["releases"]["total"] == 10
-        assert context["releases"]["active"] == 5
+        assert context == {
+            "counts": {
+                "active": 5,
+                "inactive": 7,
+                "total": 12,
+            },
+            "links": {
+                "active": "/radm/release/list?active=true",
+                "inactive": "/radm/release/list?inactive=true",
+                "total": "/radm/release/list",
+            },
+        }
 
     async def test_index_counter_error(
         self,
@@ -195,7 +206,7 @@ class TestAdminAppIndex:
         # Check that models is empty due to error
         template_call_args = admin_app.templates.TemplateResponse.call_args
         context = template_call_args[1]["context"]
-        assert context["releases"]["active"] == 5
+        assert context["counts"]["active"] == 5
 
     async def test_index_database_error(
         self,
@@ -470,8 +481,9 @@ class TestAdminAppEdgeCases:
         mock_counter = mock_counter_class.return_value
         mock_counter.get_stat = AsyncMock(
             return_value=DashboardCounts(
-                total_releases=10,
+                total_releases=12,
                 active_releases=5,
+                inactive_releases=7,
             )
         )
 

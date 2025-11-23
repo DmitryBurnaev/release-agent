@@ -10,7 +10,7 @@ from starlette.responses import Response, RedirectResponse
 from src.db.repositories import TokenRepository
 from src.db.services import SASessionUOW
 from src.db.models import BaseModel, Token
-from src.services.cache import CacheProtocol, get_cache
+from src.services import cache as cache_service
 from src.utils import admin_get_link
 from src.modules.auth.tokens import make_api_token
 from src.modules.admin.views.base import BaseModelView, FormDataType
@@ -52,7 +52,7 @@ class TokenAdminView(BaseModelView, model=Token):
         token_info = make_api_token(expires_at=expires_at, settings=self.app.settings)
         data["token"] = token_info.hashed_value
         token: Token = await super().insert_model(request, data)
-        cache = get_cache()
+        cache = cache_service.get_cache()
         cache.set(f"token__{token.id}", token_info.value, ttl=10)  # 10 seconds for showing to user
         return token
 
@@ -61,7 +61,7 @@ class TokenAdminView(BaseModelView, model=Token):
         Get token object and show it in the details page.
         """
         token: Token = await super().get_object_for_details(request)
-        cache: CacheProtocol = get_cache()
+        cache: cache_service.CacheProtocol = cache_service.get_cache()
         cache_key = f"token__{token.id}"
         token.raw_token = str(cache.get(cache_key))
         cache.invalidate(cache_key)
@@ -97,9 +97,11 @@ class TokenAdminView(BaseModelView, model=Token):
     async def _set_active(self, request: Request, is_active: bool) -> Response:
         """Set active status for tokens by their IDs"""
 
-        token_ids = request.query_params.get("pks", "").split(",")
+        token_ids: list[int] = [
+            int(pk) for pk in request.query_params.get("pks", "").split(",") if pk
+        ]
         if not token_ids:
-            raise RuntimeError("No pks provided")
+            raise ValueError("No pks provided")
 
         logger.info(
             "[ADMIN] %s tokens: %r", "Deactivating" if not is_active else "Activating", token_ids

@@ -38,13 +38,15 @@ async def get_active_releases(
     )
 
     if cached_result:
-        logger.debug(
-            "[API] Public: Releases found in cache (offset=%i, limit=%i): %i releases",
+        response_result = PaginatedResponse[ReleasePublicResponse].model_validate(cached_result)
+        logger.info(
+            "[API] Public: Releases found in cache (offset=%i, limit=%i): %i releases | latest: %s",
             offset,
             limit,
-            len(cached_result.get("items", [])),
+            len(response_result.items),
+            response_result.items[-1].version if response_result.items else "N/A",
         )
-        return PaginatedResponse[ReleasePublicResponse].model_validate(cached_result)
+        return response_result
 
     logger.debug(
         "[API] Public: No releases in cache (offset=%i, limit=%i), getting from database",
@@ -55,26 +57,18 @@ async def get_active_releases(
     async with SASessionUOW() as uow:
         repo = ReleaseRepository(session=uow.session)
         releases, total = await repo.get_active_releases(offset=offset, limit=limit)
-        response_releases = [ReleasePublicResponse.model_validate(release) for release in releases]
-        cache.set(cache_key, response_releases)
+        response_result = PaginatedResponse[ReleasePublicResponse](
+            items=[ReleasePublicResponse.model_validate(release) for release in releases],
+            total=total,
+            offset=offset,
+            limit=limit,
+        )
+        cache.set(cache_key, response_result.model_dump())
         logger.info(
-            "[API] Public: Releases cached: %i releases | total: %i",
-            len(response_releases),
+            "[API] Public: Releases got from DB and cached: %i releases | total: %i | latest: %s",
+            len(response_result.items),
             total,
+            response_result.items[-1].version if response_result.items else "N/A",
         )
 
-    logger.info(
-        "[API] Public: Releases asked (offset=%i, limit=%i): found %i releases | total: %i | latest: %s",
-        offset,
-        limit,
-        len(response_releases),
-        total,
-        response_releases[-1].version if response_releases else "N/A",
-    )
-    response_result = PaginatedResponse[ReleasePublicResponse](
-        items=response_releases,
-        total=total,
-        offset=offset,
-        limit=limit,
-    )
     return response_result

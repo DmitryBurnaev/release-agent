@@ -1,6 +1,7 @@
+from typing import Any
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.repositories import (
@@ -10,6 +11,7 @@ from src.db.repositories import (
     FilterT,
 )
 from src.db.models import User, Token
+from src.exceptions import InstanceLookupError
 
 
 class TestBaseRepository:
@@ -30,16 +32,16 @@ class TestBaseRepository:
         return user
 
     @pytest.fixture
-    def base_repo(self, mock_session: AsyncMock) -> BaseRepository:
+    def base_repo(self, mock_session: AsyncMock) -> BaseRepository[Any]:
         """Create BaseRepository instance for testing."""
 
-        class TestRepository(BaseRepository):
+        class TestRepository(BaseRepository[User]):
             model = User
 
         return TestRepository(mock_session)
 
     @pytest.mark.asyncio
-    async def test_get_success(self, base_repo: BaseRepository, mock_user: MagicMock) -> None:
+    async def test_get_success(self, base_repo: BaseRepository[Any], mock_user: MagicMock) -> None:
         """Test successful get operation."""
         base_repo.first = AsyncMock(return_value=mock_user)
 
@@ -49,15 +51,15 @@ class TestBaseRepository:
         base_repo.first.assert_awaited_once_with(1)
 
     @pytest.mark.asyncio
-    async def test_get_not_found(self, base_repo: BaseRepository) -> None:
+    async def test_get_not_found(self, base_repo: BaseRepository[Any]) -> None:
         """Test get operation when instance not found."""
         base_repo.first = AsyncMock(return_value=None)
 
-        with pytest.raises(NoResultFound):
+        with pytest.raises(InstanceLookupError):
             await base_repo.get(1)
 
     @pytest.mark.asyncio
-    async def test_first_found(self, base_repo: BaseRepository, mock_user: MagicMock) -> None:
+    async def test_first_found(self, base_repo: BaseRepository[Any], mock_user: MagicMock) -> None:
         """Test first operation when instance found."""
         mock_result = MagicMock()
         mock_result.fetchone.return_value = (mock_user,)
@@ -69,7 +71,7 @@ class TestBaseRepository:
         base_repo.session.execute.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_first_not_found(self, base_repo: BaseRepository) -> None:
+    async def test_first_not_found(self, base_repo: BaseRepository[Any]) -> None:
         """Test first operation when instance not found."""
         mock_result = MagicMock()
         mock_result.fetchone.return_value = None
@@ -80,7 +82,9 @@ class TestBaseRepository:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_all_with_filters(self, base_repo: BaseRepository, mock_user: MagicMock) -> None:
+    async def test_all_with_filters(
+        self, base_repo: BaseRepository[Any], mock_user: MagicMock
+    ) -> None:
         """Test all operation with filters."""
         mock_result = MagicMock()
         mock_result.fetchall.return_value = [(mock_user,)]
@@ -95,7 +99,7 @@ class TestBaseRepository:
         base_repo.session.execute.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_create(self, base_repo: BaseRepository) -> None:
+    async def test_create(self, base_repo: BaseRepository[Any]) -> None:
         """Test create operation."""
         user_data = {"username": "testuser", "email": "test@example.com"}
 
@@ -108,7 +112,7 @@ class TestBaseRepository:
 
     @pytest.mark.asyncio
     async def test_get_or_create_existing(
-        self, base_repo: BaseRepository, mock_user: MagicMock
+        self, base_repo: BaseRepository[Any], mock_user: MagicMock
     ) -> None:
         """Test get_or_create when instance exists."""
         base_repo.first = AsyncMock(return_value=mock_user)
@@ -119,7 +123,9 @@ class TestBaseRepository:
         base_repo.first.assert_awaited_once_with(1)
 
     @pytest.mark.asyncio
-    async def test_get_or_create_new(self, base_repo: BaseRepository, mock_user: MagicMock) -> None:
+    async def test_get_or_create_new(
+        self, base_repo: BaseRepository[Any], mock_user: MagicMock
+    ) -> None:
         """Test get_or_create when instance doesn't exist."""
         base_repo.first = AsyncMock(return_value=None)
         base_repo.create = AsyncMock(return_value=mock_user)
@@ -132,7 +138,7 @@ class TestBaseRepository:
         base_repo.get.assert_awaited_once_with(1)
 
     @pytest.mark.asyncio
-    async def test_update(self, base_repo: BaseRepository, mock_user: MagicMock) -> None:
+    async def test_update(self, base_repo: BaseRepository[Any], mock_user: MagicMock) -> None:
         """Test update operation."""
         update_data = {"username": "newuser", "email": "new@example.com"}
 
@@ -143,7 +149,7 @@ class TestBaseRepository:
         base_repo.session.add.assert_called_once_with(mock_user)
 
     @pytest.mark.asyncio
-    async def test_delete(self, base_repo: BaseRepository, mock_user: MagicMock) -> None:
+    async def test_delete(self, base_repo: BaseRepository[Any], mock_user: MagicMock) -> None:
         """Test delete operation."""
         await base_repo.delete(mock_user)
 
@@ -158,7 +164,7 @@ class TestBaseRepository:
 
         base_repo.session.execute.assert_awaited_once()
 
-    def test_prepare_statement_with_ids_filter(self, base_repo: BaseRepository) -> None:
+    def test_prepare_statement_with_ids_filter(self, base_repo: BaseRepository[Any]) -> None:
         """Test _prepare_statement with ids filter."""
         filters: dict[str, FilterT] = {"ids": [1, 2, 3], "username": "testuser"}
 
@@ -174,7 +180,7 @@ class TestBaseRepository:
 
         assert "username" in filters
 
-    def test_prepare_statement_with_entities(self, base_repo: BaseRepository) -> None:
+    def test_prepare_statement_with_entities(self, base_repo: BaseRepository[Any]) -> None:
         """Test _prepare_statement with custom entities."""
         filters: dict[str, FilterT] = {"username": "testuser"}
         entities = [User.id, User.username]
@@ -298,9 +304,9 @@ class TestTokenRepository:
             token_repo.session.flush.assert_awaited_once()
 
             # Check log calls
-            assert mock_logger.info.call_count == 2
             mock_logger.info.assert_any_call("[DB] %s %i tokens: %r", "Activating", 3, [1, 2, 3])
-            mock_logger.info.assert_any_call("[DB] %s %d tokens", "Activated", 3)
+            mock_logger.info.assert_any_call("[DB] Updating %i instances: %r", 3, [1, 2, 3])
+            mock_logger.info.assert_any_call("[DB] Updated %i instances", 3)
 
     @pytest.mark.asyncio
     async def test_set_active_false(self, token_repo: TokenRepository) -> None:
@@ -318,14 +324,14 @@ class TestTokenRepository:
             token_repo.session.flush.assert_awaited_once()
 
             # Check log calls
-            assert mock_logger.info.call_count == 2
             mock_logger.info.assert_any_call("[DB] %s %i tokens: %r", "Deactivating", 3, [1, 2, 3])
-            mock_logger.info.assert_any_call("[DB] %s %d tokens", "Deactivated", 2)
+            mock_logger.info.assert_any_call("[DB] Updating %i instances: %r", 3, [1, 2, 3])
+            mock_logger.info.assert_any_call("[DB] Updated %i instances", 2)
 
     @pytest.mark.asyncio
     async def test_set_active_with_string_ids(self, token_repo: TokenRepository) -> None:
         """Test set_active with string IDs."""
-        token_ids = ["1", "2", "3"]
+        token_ids: list[int] = [1, 2, 3]
         mock_result = MagicMock()
         mock_result.rowcount = 3
         token_repo.session.execute = AsyncMock(return_value=mock_result)
