@@ -111,7 +111,7 @@ When enabled, the Swagger documentation is available at `/docs` and ReDoc at `/r
 | API_DOCS_ENABLED              | bool   |       false |          | Enable FastAPI docs (Swagger/ReDoc)                |
 | APP_SECRET_KEY                | string |           - |   yes    | Secret key                                         |
 | APP_HOST                      | string |   localhost |          | Host address for the application                   |
-| APP_PORT                      | int    |        8003 |          | Port for the application                           |
+| APP_PORT                      | int    |        8004 |          | Port for the application                           |
 | JWT_ALGORITHM                 | string |       HS256 |          | JWT algorithm                                      |
 
 ### Admin Settings (AdminSettings, env prefix `ADMIN_`)
