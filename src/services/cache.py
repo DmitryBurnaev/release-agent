@@ -102,7 +102,7 @@ def get_cache() -> CacheProtocol:
 
 def invalidate_release_cache() -> None:
     """Invalidate cache for active releases (all pages)"""
-    prefix = CACHE_KEY_ACTIVE_RELEASES_PAGE.replace("{offset}", "").replace("{limit}", "")
+    prefix = CACHE_KEY_ACTIVE_RELEASES_PAGE.replace("{offset}_{limit}", "")
     # Invalidate all paginated cache keys
     cache: CacheProtocol = get_cache()
     cache.invalidate_pattern(prefix)
