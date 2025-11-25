@@ -8,7 +8,7 @@ For detailed server installation instructions, see [INSTALL.md](INSTALL.md).
 
 ## Development
 
-### Prerequisits
+### Prerequisites
 
 - Docker and Docker Compose
 - Python 3.13 (for local development)

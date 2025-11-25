@@ -25,7 +25,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("version", sa.String(length=32), nullable=False),
         sa.Column("notes", sa.Text(), nullable=False),
-        sa.Column("url", sa.String(length=255), nullable=False),
+        sa.Column("url", sa.String(length=255), nullable=True),
         sa.Column("is_active", sa.Boolean(), server_default=sa.text("true"), nullable=False),
         sa.Column("published_at", sa.DateTime(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
