@@ -9,6 +9,7 @@ from src.modules.api import ErrorHandlingBaseRoute
 from src.db.repositories import ReleaseRepository
 from src.db.services import SASessionUOW
 from src.services.cache import CacheProtocol, get_cache
+from src.settings import get_app_settings
 
 logger = logging.getLogger(__name__)
 __all__ = ("public_router",)
@@ -29,13 +30,14 @@ async def get_active_releases(
 ) -> PaginatedResponse[ReleasePublicResponse]:
     """Get paginated list of active releases (public endpoint, no authentication required)"""
     logger.debug("[API] Public: Getting active releases (offset=%i, limit=%i)", offset, limit)
-    # TODO: enhance cache to use Redis or other cache backend
+    settings = get_app_settings()
+    cached_result: dict[str, Any] | None = None
     cache: CacheProtocol = get_cache()
     cache_key = CACHE_KEY_ACTIVE_RELEASES_PAGE.format(offset=offset, limit=limit)
-    cached_data = cache.get(cache_key)
-    cached_result: dict[str, Any] | None = (
-        cached_data if cached_data and isinstance(cached_data, dict) else None
-    )
+    # TODO: enhance cache to use Redis or other cache backend
+    if settings.api_cache_enabled:
+        cached_data = cache.get(cache_key)
+        cached_result = cached_data if cached_data and isinstance(cached_data, dict) else None
 
     if cached_result:
         response_result = PaginatedResponse[ReleasePublicResponse].model_validate(cached_result)

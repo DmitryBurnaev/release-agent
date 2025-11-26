@@ -37,7 +37,7 @@ class ReleasePublicResponse(BaseModel):
 
     version: str
     notes: str
-    url: str
+    url: str | None
     published_at: datetime
 
 
@@ -48,7 +48,7 @@ class ReleaseBaseResponse(BaseModel):
 
     id: int
     version: str
-    url: str
+    url: str | None
     published_at: datetime
     is_active: bool
 

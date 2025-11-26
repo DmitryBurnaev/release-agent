@@ -49,9 +49,10 @@ class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     api_docs_enabled: bool = False
+    api_cache_enabled: bool = False
     app_secret_key: SecretStr = Field(description="Application secret key")
     app_host: str = "localhost"
-    app_port: int = 8003
+    app_port: int = 8004
     jwt_algorithm: str = "HS256"
     admin: AdminSettings = Field(default_factory=AdminSettings)
     flags: FlagsSettings = Field(default_factory=FlagsSettings)
