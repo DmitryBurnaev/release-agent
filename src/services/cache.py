@@ -42,6 +42,7 @@ class InMemoryCache(CacheProtocol):
         Returns:
             Cached value if exists and not expired, None otherwise
         """
+
         if key not in self._data:
             return None
 
