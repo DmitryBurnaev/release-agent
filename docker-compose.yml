@@ -12,8 +12,11 @@ services:
     environment:
       APP_SERVICE: app
       DB_HOST: db
+      REDIS_HOST: redis
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   db:
@@ -33,6 +36,17 @@ services:
       retries: 5
     volumes:
       - ${PWD}/.data/postgres:/var/lib/postgresql/data/pgdata
+
+  redis:
+    container_name: release-agent-redis
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+    volumes:
+      - ${PWD}/.data/redis:/data
 
   test:
     container_name: release-agent-test

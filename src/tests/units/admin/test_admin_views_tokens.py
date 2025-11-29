@@ -77,6 +77,11 @@ def mock_uow() -> Generator[AsyncMock, Any, None]:
 def mock_cache() -> Generator[MagicMock, Any, None]:
     with patch("src.services.cache.get_cache") as mock_cache_func:
         mock_cache = MagicMock()
+        # Configure async methods to return coroutines
+        mock_cache.get = AsyncMock(return_value=None)
+        mock_cache.set = AsyncMock()
+        mock_cache.invalidate = AsyncMock()
+        mock_cache.invalidate_pattern = AsyncMock()
         mock_cache_func.return_value = mock_cache
         yield mock_cache
 
@@ -109,7 +114,12 @@ class TestTokenAdminViewInsertModel:
 
         assert result == mock_token
         mock_super_model_view_insert.assert_called_once()
-        mock_cache.set.assert_called_once_with(f"token__{mock_token.id}", "raw-token-value", ttl=10)
+        mock_cache.set.assert_called_once()
+        # Check that set was called with correct arguments (async call)
+        call_args = mock_cache.set.call_args
+        assert call_args[0][0] == f"token__{mock_token.id}"
+        assert call_args[0][1] == "raw-token-value"
+        assert call_args[1]["ttl"] == 10
 
     @pytest.mark.asyncio
     async def test_insert_model_without_expiration(
@@ -170,14 +180,16 @@ class TestTokenAdminViewOperations:
     ) -> None:
         # Setup mocks
         mock_super_model_view_get_details.return_value = mock_token
-        mock_cache.get.return_value = "raw-token-value"
+        mock_cache.get = AsyncMock(return_value="raw-token-value")
 
         result = await token_admin_view.get_object_for_details(request=mock_request)
 
         assert result == mock_token
         assert result.raw_token == "raw-token-value"
-        mock_cache.get.assert_called_once_with(f"token__{mock_token.id}")
-        mock_cache.invalidate.assert_called_once_with(f"token__{mock_token.id}")
+        mock_cache.get.assert_called_once()
+        assert mock_cache.get.call_args[0][0] == f"token__{mock_token.id}"
+        mock_cache.invalidate.assert_called_once()
+        assert mock_cache.invalidate.call_args[0][0] == f"token__{mock_token.id}"
 
     @pytest.mark.asyncio
     async def test_get_object_for_details_no_cache(
@@ -189,14 +201,16 @@ class TestTokenAdminViewOperations:
         mock_super_model_view_get_details: MagicMock,
     ) -> None:
         mock_super_model_view_get_details.return_value = mock_token
-        mock_cache.get.return_value = None
+        mock_cache.get = AsyncMock(return_value=None)
 
         result = await token_admin_view.get_object_for_details(1)
 
         assert result == mock_token
-        assert result.raw_token == "None"
-        mock_cache.get.assert_called_once_with(f"token__{mock_token.id}")
-        mock_cache.invalidate.assert_called_once_with(f"token__{mock_token.id}")
+        assert result.raw_token == ""
+        mock_cache.get.assert_called_once()
+        assert mock_cache.get.call_args[0][0] == f"token__{mock_token.id}"
+        mock_cache.invalidate.assert_called_once()
+        assert mock_cache.invalidate.call_args[0][0] == f"token__{mock_token.id}"
 
     def test_get_save_redirect_url(
         self,

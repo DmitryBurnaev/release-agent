@@ -17,6 +17,7 @@ dependencies = [
     "pyjwt==2.10.1",
     "pycryptodomex==3.23.0",       # for API key encryptions
     "uvloop==0.22.1",
+    "redis==5.2.1",                # for Redis cache backend
 ]
 
 [tool.uv]

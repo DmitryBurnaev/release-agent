@@ -81,7 +81,7 @@ async def create_release(
         release = await repo.create(value=release_info)
         uow.mark_for_commit()
 
-    invalidate_release_cache()
+    await invalidate_release_cache()
     logger.info("[API] Release created: '%s'", release.version)
     return ReleaseDetailsResponse.model_validate(release)
 
@@ -100,7 +100,7 @@ async def update_release(
         await repo.update(release, **update_dict)
         uow.mark_for_commit()
 
-    invalidate_release_cache()
+    await invalidate_release_cache()
     logger.info("[API] Release updated: '%s'", release)
     return ReleaseDetailsResponse.model_validate(release)
 
@@ -118,7 +118,7 @@ async def activate_release(
         await repo.set_active([release_id], is_active=True)
         uow.mark_for_commit()
 
-    invalidate_release_cache()
+    await invalidate_release_cache()
     logger.info("[API] Release activated: '%s'", release.version)
     return ReleaseDetailsResponse.model_validate(release)
 
@@ -136,7 +136,7 @@ async def deactivate_release(
         await repo.set_active([release_id], is_active=False)
         uow.mark_for_commit()
 
-    invalidate_release_cache()
+    await invalidate_release_cache()
     logger.info("[API] Release deactivated: '%s'", release.version)
     return ReleaseDetailsResponse.model_validate(release)
 
@@ -155,6 +155,6 @@ async def delete_release(
         await repo.delete(release)
         uow.mark_for_commit()
 
-    invalidate_release_cache()
+    await invalidate_release_cache()
     logger.info("[API] Release deleted: '%s'", release.version)
     return None

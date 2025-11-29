@@ -11,36 +11,47 @@ class TestCache:
     def cache(self) -> InMemoryCache:
         return InMemoryCache()
 
-    def test_get_set(self, cache: InMemoryCache) -> None:
+    @pytest.mark.asyncio
+    async def test_get_set(self, cache: InMemoryCache) -> None:
         # Test setting and getting value
-        cache.set("test", "value")
-        assert cache.get("test") == "value"
+        await cache.set("test", "value")
+        result = await cache.get("test")
+        assert result == "value"
 
         # Test getting non-existent key
-        assert cache.get("non-existent") is None
+        result = await cache.get("non-existent")
+        assert result is None
 
-    def test_ttl_expiration(self, cache: InMemoryCache, monkeypatch) -> None:  # type: ignore
+    @pytest.mark.asyncio
+    async def test_ttl_expiration(self, cache: InMemoryCache, monkeypatch) -> None:  # type: ignore
         old_ttl = cache._ttl
         cache._ttl = 0.1
-        cache.set("test", "value")
-        assert cache.get("test") == "value"
+        await cache.set("test", "value")
+        result = await cache.get("test")
+        assert result == "value"
 
         # Verify value is gone
         time.sleep(0.2)
-        assert cache.get("test") is None
+        result = await cache.get("test")
+        assert result is None
         cache._ttl = old_ttl
 
-    def test_invalidate(self, cache: InMemoryCache) -> None:
+    @pytest.mark.asyncio
+    async def test_invalidate(self, cache: InMemoryCache) -> None:
         # Set multiple values
-        cache.set("key1", "value1")
-        cache.set("key2", "value2")
+        await cache.set("key1", "value1")
+        await cache.set("key2", "value2")
 
         # Invalidate specific key
-        cache.invalidate("key1")
-        assert cache.get("key1") is None
-        assert cache.get("key2") == "value2"
+        await cache.invalidate("key1")
+        result1 = await cache.get("key1")
+        result2 = await cache.get("key2")
+        assert result1 is None
+        assert result2 == "value2"
 
         # Invalidate all
-        cache.invalidate()
-        assert cache.get("key1") is None
-        assert cache.get("key2") is None
+        await cache.invalidate()
+        result1 = await cache.get("key1")
+        result2 = await cache.get("key2")
+        assert result1 is None
+        assert result2 is None
