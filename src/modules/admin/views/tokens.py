@@ -52,8 +52,11 @@ class TokenAdminView(BaseModelView, model=Token):
         token_info = make_api_token(expires_at=expires_at, settings=self.app.settings)
         data["token"] = token_info.hashed_value
         token: Token = await super().insert_model(request, data)
-        cache = cache_service.get_cache()
-        cache.set(f"token__{token.id}", token_info.value, ttl=10)  # 10 seconds for showing to user
+        # TODO: support in_memory=True
+        cache: cache_service.CacheProtocol = cache_service.get_cache(in_memory=True)
+        await cache.set(
+            f"token__{token.id}", token_info.value, ttl=10
+        )  # 10 seconds for showing to user
         return token
 
     async def get_object_for_details(self, request: Request) -> Token:
@@ -61,10 +64,11 @@ class TokenAdminView(BaseModelView, model=Token):
         Get token object and show it in the details page.
         """
         token: Token = await super().get_object_for_details(request)
-        cache: cache_service.CacheProtocol = cache_service.get_cache()
+        cache: cache_service.CacheProtocol = cache_service.get_cache(in_memory=True)
         cache_key = f"token__{token.id}"
-        token.raw_token = str(cache.get(cache_key))
-        cache.invalidate(cache_key)
+        cached_value = await cache.get(cache_key)
+        token.raw_token = str(cached_value) if cached_value else ""
+        await cache.invalidate(cache_key)
         return token
 
     def get_save_redirect_url(self, request: Request, token: Token) -> URL:

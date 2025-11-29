@@ -153,6 +153,18 @@ When enabled, the Swagger documentation is available at `/docs` and ReDoc at `/r
 | DB_POOL_MAX_SIZE | int    |                  - |          | Pool max size     |
 | DB_ECHO          | bool   |              false |          | SQLAlchemy echo   |
 
+### Redis Settings (RedisSettings, env prefix `REDIS_`)
+
+| Variable        | Type   |            Default | Required | Description                                    |
+|-----------------|--------|-------------------:|:--------:|------------------------------------------------|
+| USE_REDIS_CACHE | bool   |              false |          | Enable Redis cache backend (also REDIS_USE_REDIS) |
+| REDIS_USE_REDIS | bool   |              false |          | Enable Redis cache backend (alternative to USE_REDIS_CACHE) |
+| REDIS_HOST      | string |          localhost |          | Redis host                                     |
+| REDIS_PORT      | int    |               6379 |          | Redis port                                     |
+| REDIS_DB        | int    |                  0 |          | Redis database number                          |
+
+**Note:** Both `USE_REDIS_CACHE` and `REDIS_USE_REDIS` are supported. `USE_REDIS_CACHE` takes precedence if both are set.
+
 ### Container / Infra
 
 | Variable     | Type   | Default |       Required       | Description                                                                 |

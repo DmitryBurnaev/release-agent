@@ -34,9 +34,8 @@ async def get_active_releases(
     cached_result: dict[str, Any] | None = None
     cache: CacheProtocol = get_cache()
     cache_key = CACHE_KEY_ACTIVE_RELEASES_PAGE.format(offset=offset, limit=limit)
-    # TODO: enhance cache to use Redis or other cache backend
     if settings.api_cache_enabled:
-        cached_data = cache.get(cache_key)
+        cached_data = await cache.get(cache_key)
         cached_result = cached_data if cached_data and isinstance(cached_data, dict) else None
 
     if cached_result:
@@ -65,7 +64,7 @@ async def get_active_releases(
             offset=offset,
             limit=limit,
         )
-        cache.set(cache_key, response_result.model_dump())
+        await cache.set(cache_key, response_result.model_dump())
         logger.info(
             "[API] Public: Releases got from DB and cached: %i releases | total: %i | latest: %s",
             len(response_result.items),

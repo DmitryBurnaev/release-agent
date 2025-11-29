@@ -42,6 +42,20 @@ async def lifespan(app: ReleaseAgentAPP) -> AsyncGenerator[None, None]:
     except Exception as exc:
         raise StartupError("Failed to initialize DB connection") from exc
 
+    # Check Redis availability if enabled
+    if app.settings.redis.use_redis:
+        logger.info("Checking Redis connection...")
+        try:
+            from src.services.cache import get_cache
+
+            cache = get_cache()
+            # Try to connect to Redis
+            await cache.get("__health_check__")
+            logger.info("Redis connection check completed successfully")
+        except Exception as exc:
+            logger.warning("Redis connection check failed: %r", exc)
+            logger.warning("Application will continue, but Redis cache may not be available")
+
     logger.info("Setting up admin application...")
     make_admin(app)
 

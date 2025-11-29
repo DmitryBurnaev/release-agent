@@ -162,5 +162,5 @@ class ReleaseAdminView(BaseModelView, model=Release):
             await repo.set_active(release_ids, is_active=is_active)
             await uow.commit()
 
-        invalidate_release_cache()
+        await invalidate_release_cache()
         return RedirectResponse(url=request.url_for("admin:list", identity=self.identity))
