@@ -1,5 +1,6 @@
 import logging
 import datetime
+from typing import cast
 
 from sqladmin import action
 from starlette.datastructures import URL
@@ -10,7 +11,6 @@ from src.db.repositories import TokenRepository
 from src.db.services import SASessionUOW
 from src.db.models import BaseModel, Token
 from src.services import cache as cache_service
-from src.services.cache import invalidate_release_cache
 from src.utils import admin_get_link
 from src.modules.auth.tokens import make_api_token
 from src.modules.admin.views.base import BaseModelView, FormDataType
@@ -41,7 +41,6 @@ class TokenAdminView(BaseModelView, model=Token):
     details_template = "token_details.html"
     custom_post_create = True
 
-    @invalidate_releases_decorator
     async def insert_model(self, request: Request, data: FormDataType) -> Token:
         """
         Create a new token and save it to the database with generated token and its hashed value
