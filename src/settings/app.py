@@ -8,7 +8,6 @@ from fastapi import Depends
 from pydantic import SecretStr, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from src.settings.db import RedisSettings
 from src.settings.utils import prepare_settings
 from src.settings.log import LogSettings
 

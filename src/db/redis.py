@@ -15,8 +15,8 @@ class AsyncRedisConnectors:
     """
 
     def __init__(self, settings: RedisSettings) -> None:
-        self.redis_settings: RedisSettings = settings
-        self.client: aioredis.Redis | None = None
+        self._redis_settings: RedisSettings = settings
+        self._client: aioredis.Redis | None = None
 
     async def init_connection(self) -> None:
         """
@@ -25,16 +25,16 @@ class AsyncRedisConnectors:
         Raises:
             RuntimeError: If the Redis connection is not initialized
         """
-        logger.info("Redis: Initializing connection to %s...", self.redis_settings.info)
-        if self.client is None:
-            self.client = aioredis.Redis(
-                host=self.redis_settings.host,
-                port=self.redis_settings.port,
-                db=self.redis_settings.db,
-                decode_responses=self.redis_settings.decode_responses,
-                socket_connect_timeout=self.redis_settings.socket_connect_timeout,
-                socket_timeout=self.redis_settings.socket_timeout,
-                max_connections=self.redis_settings.max_connections,
+        logger.info("Redis: Initializing connection to %s...", self._redis_settings.info)
+        if self._client is None:
+            self._client = aioredis.Redis(
+                host=self._redis_settings.host,
+                port=self._redis_settings.port,
+                db=self._redis_settings.db,
+                decode_responses=self._redis_settings.decode_responses,
+                socket_connect_timeout=self._redis_settings.socket_connect_timeout,
+                socket_timeout=self._redis_settings.socket_timeout,
+                max_connections=self._redis_settings.max_connections,
             )
 
         await self._ping_connection()
@@ -44,7 +44,7 @@ class AsyncRedisConnectors:
         if self.client is None:
             raise RuntimeError("Redis connection is not initialized")
 
-        connection_info = self.redis_settings.info
+        connection_info = self._redis_settings.info
 
         logger.info("Redis: Pinging connection to %s...", connection_info)
 
@@ -62,17 +62,17 @@ class AsyncRedisConnectors:
             return
 
         await self.client.aclose()
-        self.client = None
-        logger.info("Redis: Connection to %s closed successfully", self.redis_settings.info)
+        self._client = None
+        logger.info("Redis: Connection to %s closed successfully", self._redis_settings.info)
 
     @property
     def client(self) -> aioredis.Redis:
         """Get the Redis client instance from current context"""
-        if self.client is None:
+        if self._client is None:
             logger.warning("Redis: Client is not initialized!")
             raise RuntimeError("Client is not initialized. Make sure lifespan is properly set up.")
 
-        return self.client
+        return self._client
 
 
 _redis_connectors = AsyncRedisConnectors(get_redis_settings())
