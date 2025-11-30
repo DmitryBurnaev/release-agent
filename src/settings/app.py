@@ -3,19 +3,18 @@ from pathlib import Path
 from typing import Annotated
 from zoneinfo import ZoneInfo
 import logging
-import os
 
 from fastapi import Depends
 from pydantic import SecretStr, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from src.settings.db import RedisSettings
 from src.settings.utils import prepare_settings
 from src.settings.log import LogSettings
 
 __all__ = (
     "get_app_settings",
     "AppSettings",
-    "RedisSettings",
 )
 logger = logging.getLogger(__name__)
 APP_DIR = Path(__file__).parent.parent
@@ -45,35 +44,6 @@ class AdminSettings(BaseSettings):
     title: str = "Release Agent"
 
 
-class RedisSettings(BaseSettings):
-    """Redis settings which are loaded from environment variables"""
-
-    model_config = SettingsConfigDict(env_prefix="REDIS_")
-
-    use_redis: bool = Field(default=False, description="Enable Redis cache")
-    host: str = "localhost"
-    port: int = 6379
-    db: int = 0
-
-    @field_validator("use_redis", mode="before")
-    @classmethod
-    def validate_use_redis(cls, v: str | bool | None) -> bool:
-        """Support both USE_REDIS_CACHE and REDIS_USE_REDIS environment variables"""
-        # Check USE_REDIS_CACHE first (without prefix)
-        use_redis_cache = os.environ.get("USE_REDIS_CACHE")
-        if use_redis_cache is not None:
-            return use_redis_cache.lower() in ("true", "1", "yes", "on")
-
-        # Fall back to provided value (from REDIS_USE_REDIS)
-        if v is None:
-            return False
-        if isinstance(v, bool):
-            return v
-        if isinstance(v, str):
-            return v.lower() in ("true", "1", "yes", "on")
-        return bool(v)
-
-
 class AppSettings(BaseSettings):
     """Application settings which are loaded from environment variables"""
 
@@ -88,10 +58,9 @@ class AppSettings(BaseSettings):
     admin: AdminSettings = Field(default_factory=AdminSettings)
     flags: FlagsSettings = Field(default_factory=FlagsSettings)
     log: LogSettings = Field(default_factory=LogSettings)
-    redis: RedisSettings = Field(default_factory=RedisSettings)
+    use_redis: bool = Field(default=False, description="Enable Redis cache backend")
     ui_timezone: ZoneInfo | None = Field(
         default=None,
-        # validation_alias="UT_TIMEZONE",
         description="UI timezone (from env UT_TIMEZONE, e.g. 'Europe/Moscow')",
     )
 

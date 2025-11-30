@@ -41,3 +41,11 @@ class ReleaseRequestError(BaseApplicationError):
     log_level: int = logging.WARNING
     log_message: str = "Release request error"
     status_code: int = status.HTTP_400_BAD_REQUEST
+
+
+class CacheBackendError(BaseApplicationError):
+    """Cache access error"""
+
+    log_level: int = logging.ERROR
+    log_message: str = "Unable to use cache backend"
+    status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR

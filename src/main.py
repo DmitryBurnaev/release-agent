@@ -6,6 +6,7 @@ from typing import Any, Callable, AsyncGenerator
 import uvicorn
 from fastapi import FastAPI, Depends
 
+from src.db.redis import close_redis, initialize_redis
 from src.modules.auth.dependencies import verify_api_token
 from src.modules.admin.app import make_admin
 from src.exceptions import AppSettingsError, StartupError
@@ -38,23 +39,21 @@ async def lifespan(app: ReleaseAgentAPP) -> AsyncGenerator[None, None]:
     logger.info("Starting up application...")
     try:
         await initialize_database()
-        logger.info("Application startup completed successfully")
     except Exception as exc:
         raise StartupError("Failed to initialize DB connection") from exc
+    else:
+        logger.info("DB connection startup completed")
 
     # Check Redis availability if enabled
-    if app.settings.redis.use_redis:
-        logger.info("Checking Redis connection...")
+    if app.settings.use_redis:
         try:
-            from src.services.cache import get_cache
-
-            cache = get_cache()
-            # Try to connect to Redis
-            await cache.get("__health_check__")
-            logger.info("Redis connection check completed successfully")
+            await initialize_redis()
         except Exception as exc:
-            logger.warning("Redis connection check failed: %r", exc)
-            logger.warning("Application will continue, but Redis cache may not be available")
+            raise StartupError("Failed to initialize Redis connection") from exc
+        else:
+            logger.info("Redis connection startup completed")
+    else:
+        logger.info("Redis is not enabled, skipping initialization")
 
     logger.info("Setting up admin application...")
     make_admin(app)
@@ -69,6 +68,14 @@ async def lifespan(app: ReleaseAgentAPP) -> AsyncGenerator[None, None]:
         logger.error("Error during application shutdown: %r", exc)
     else:
         logger.info("Application shutdown completed successfully")
+
+    if app.settings.use_redis:
+        try:
+            await close_redis()
+        except Exception as exc:
+            logger.error("Error during application shutdown: %r", exc)
+        else:
+            logger.info("Redis connection shutdown completed successfully")
 
     logger.info("=====")
 

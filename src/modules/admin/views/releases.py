@@ -1,6 +1,7 @@
 import logging
 import datetime
-from typing import cast, Any
+from typing import cast, Any, Callable
+import functools
 
 from sqladmin import action
 from sqlalchemy import Select, select, func
@@ -55,6 +56,19 @@ def _make_date_formatter(column_name: str) -> Any:
     return formatter
 
 
+def invalidate_releases_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Decorator to invalidate releases cache after the function is called"""
+
+    @functools.wraps(func)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        result = await func(*args, **kwargs)
+        await invalidate_release_cache()
+        logger.debug("[ADMIN:%s] Invalidated releases cache", func.__name__)
+        return result
+
+    return wrapper
+
+
 class ReleaseAdminView(BaseModelView, model=Release):
     name = "Release"
     name_plural = "Releases"
@@ -101,6 +115,9 @@ class ReleaseAdminView(BaseModelView, model=Release):
     column_default_li = ()
     form_overrides = dict(notes=HiddenField)
     _cached_query: ReleaseSelectT
+    update_model = invalidate_releases_decorator(BaseModelView.update_model)
+    insert_model = invalidate_releases_decorator(BaseModelView.insert_model)
+    delete_model = invalidate_releases_decorator(BaseModelView.delete_model)
 
     def list_query(self, request: Request) -> ReleaseSelectT:
         """Search licenses by requested filters"""
@@ -146,6 +163,7 @@ class ReleaseAdminView(BaseModelView, model=Release):
         """Activate releases by their IDs"""
         return await self._set_active(request, is_active=True)
 
+    @invalidate_releases_decorator
     async def _set_active(self, request: Request, is_active: bool) -> Response:
         """Set active status for releases by their IDs"""
         release_ids: list[int] = [int(pk) for pk in request.query_params.get("pks", "").split(",")]
@@ -162,5 +180,4 @@ class ReleaseAdminView(BaseModelView, model=Release):
             await repo.set_active(release_ids, is_active=is_active)
             await uow.commit()
 
-        await invalidate_release_cache()
         return RedirectResponse(url=request.url_for("admin:list", identity=self.identity))
