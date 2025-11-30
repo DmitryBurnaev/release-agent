@@ -1,16 +1,22 @@
 import json
 import time
 import logging
-from typing import Protocol, Any, TypeAlias
+import contextlib
+from typing import Generator, Protocol, Any, TypeAlias, Literal
 
 import redis.asyncio as aioredis
 
 from src.constants import CACHE_KEY_ACTIVE_RELEASES_PAGE
+from src.db.redis import get_redis_client
+from src.exceptions import CacheBackendError
+from src.settings import get_app_settings
 from src.utils import singleton
 
 logger = logging.getLogger("cache")
 DEFAULT_CACHE_TTL: int = 3600
 CacheValueType: TypeAlias = str | list[dict[str, Any]] | dict[str, Any]
+type CacheOperation = Literal["get", "set", "invalidate", "invalidate_pattern"]
+type CacheBackend = Literal["redis", "memory"]
 
 
 class CacheProtocol(Protocol):
@@ -20,16 +26,42 @@ class CacheProtocol(Protocol):
     async def set(self, key: str, value: CacheValueType, ttl: int | None = None) -> None:
         pass
 
-    async def invalidate(self, key: str | None = None) -> None:
+    async def invalidate(
+        self,
+        key: str | None = None,
+        pattern: str | Literal["*"] | None = None,
+    ) -> None:
         pass
 
-    async def invalidate_pattern(self, prefix: str) -> None:
-        pass
+
+@contextlib.contextmanager
+def cache_wrap_error(
+    operation: CacheOperation,
+    backend: CacheBackend = "redis",
+) -> Generator[None, None, None]:
+    """
+    Context manager to wrap cache operations and raise CacheBackendError
+    if any error occurs.
+
+    :param operation: Cache operation to wrap
+    :param backend: Cache backend to use (redis or memory)
+    :return: Generator to yield the context manager
+    :raises: CacheBackendError: If any error occurs while using the cache
+    """
+    try:
+        yield
+    except aioredis.RedisError as exc:
+        logger.error("Cache[%s:%s]  connection error: %s", backend, operation, exc)
+        raise CacheBackendError(f"Redis connection error: {exc}") from exc
+
+    except (TypeError, ValueError) as exc:
+        logger.error("Cache[%s:%s] common error: %s", backend, operation, exc)
+        raise CacheBackendError(f"Common error: {exc}") from exc
 
 
 @singleton
 class InMemoryCache(CacheProtocol):
-    """Simple in-memory cache with TTL per key."""
+    """Simple memory cache with TTL per key."""
 
     def __init__(self) -> None:
         self._ttl: float = DEFAULT_CACHE_TTL
@@ -37,13 +69,11 @@ class InMemoryCache(CacheProtocol):
         self._last_update: dict[str, float] = {}
 
     async def get(self, key: str) -> CacheValueType | None:
-        """Get cached value for a key if not expired.
+        """
+        Get cached value for a key if not expired.
 
-        Args:
-            key: Cache key to look up
-
-        Returns:
-            Cached value if exists and not expired, None otherwise
+        :param key: Cache key to look up
+        :return: Cached value if exists and not expired, None otherwise
         """
         if key not in self._data:
             return None
@@ -53,183 +83,168 @@ class InMemoryCache(CacheProtocol):
             del self._last_update[key]
             return None
 
-        logger.debug("Cache: got value for key %s", key)
+        logger.debug("Cache[memory]: got value for key %s", key)
         return self._data[key]
 
     async def set(self, key: str, value: CacheValueType, ttl: int | None = None) -> None:
-        """Set new cache value for key and update timestamp.
+        """
+        Set new cache value for key and update timestamp.
 
-        Args:
-            key: Cache key to store value
-            value: Value to cache
-            ttl: TTL to use (ignored for in-memory cache, uses default TTL)
+        :param key: Cache key to store value
+        :param value: Value to cache
+        :param ttl: TTL to use (ignored for memory cache, uses default TTL)
         """
         self._data[key] = value
         self._last_update[key] = time.monotonic()
-        logger.debug("Cache: set value for key %s | value: %s", key, value)
+        logger.debug("Cache[memory]: set value for key %s | value: %s", key, value)
 
-    async def invalidate(self, key: str | None = None) -> None:
-        """Force cache invalidation.
-
-        Args:
-            key: Specific key to invalidate, if None - invalidate all cache
+    async def invalidate(
+        self,
+        key: str | None = None,
+        pattern: str | Literal["*"] | None = None,
+    ) -> None:
         """
+        Force cache invalidation for a specific key or pattern.
+
+        :param key: Specific key to invalidate, if None - invalidate all cache
+        :param pattern: Pattern to invalidate, if None - invalidate all cache
+        :raises: ValueError: If key or pattern is not provided
+        """
+        if pattern == "*":
+            logger.debug("Cache[memory]: invalidated all keys")
+            self._data.clear()
+            self._last_update.clear()
+            return
+
+        elif pattern:
+            prefix = pattern.removesuffix("*")
+            keys_to_remove = [key for key in self._data.keys() if key.startswith(prefix)]
+            for key in keys_to_remove:
+                if key in self._data:
+                    del self._data[key]
+                if key in self._last_update:
+                    del self._last_update[key]
+
+            if keys_to_remove:
+                logger.debug(
+                    "Cache[memory]: invalidated %i keys with prefix %s",
+                    len(keys_to_remove),
+                    prefix,
+                )
+
         if key is None:
             self._data.clear()
             self._last_update.clear()
-        elif key in self._data:
-            del self._data[key]
-            del self._last_update[key]
 
-    async def invalidate_pattern(self, prefix: str) -> None:
-        """Invalidate all cache keys starting with the prefix.
-
-        Args:
-            prefix: Prefix to match keys (e.g., "active_releases_page_")
-        """
-        keys_to_remove = [key for key in self._data.keys() if key.startswith(prefix)]
-        for key in keys_to_remove:
-            if key in self._data:
-                del self._data[key]
-            if key in self._last_update:
-                del self._last_update[key]
-        if keys_to_remove:
-            logger.debug("Cache: invalidated %i keys with prefix %s", len(keys_to_remove), prefix)
+        raise ValueError("Cache[memory]: key or pattern is required for invalidation")
 
 
 @singleton
 class RedisCache(CacheProtocol):
     """Redis-based cache implementation with JSON serialization and async operations."""
 
-    def __init__(self, host: str = "localhost", port: int = 6379, db: int = 0) -> None:
+    def __init__(self, client: aioredis.Redis) -> None:
         """Initialize Redis cache client.
 
-        Args:
-            host: Redis host
-            port: Redis port
-            db: Redis database number
+        :param client: Redis client instance
         """
-        self._host = host
-        self._port = port
-        self._db = db
-        self._client: aioredis.Redis | None = None
+        self._client = client
         self._default_ttl: int = DEFAULT_CACHE_TTL
 
-    async def _ensure_client(self) -> aioredis.Redis:
-        """Ensure Redis client is initialized and connected."""
+    @property
+    def client(self) -> aioredis.Redis:
+        """Get the Redis client instance from current context"""
         if self._client is None:
-            self._client = aioredis.Redis(
-                host=self._host,
-                port=self._port,
-                db=self._db,
-                decode_responses=True,
-                socket_connect_timeout=5,
-                socket_timeout=5,
-            )
-            try:
-                await self._client.ping()
-                logger.info(
-                    "Redis cache: connected to %s:%i (db=%i)", self._host, self._port, self._db
-                )
-            except aioredis.ConnectionError as e:
-                logger.error("Redis cache: connection failed: %s", e)
-                await self._client.aclose()
-                self._client = None
-                raise
+            logger.warning("Cache[redis]: Client is not initialized!")
+            raise RuntimeError("Client is not initialized. Make sure lifespan is properly set up.")
+
         return self._client
 
     async def get(self, key: str) -> CacheValueType | None:
-        """Get cached value for a key.
-
-        Args:
-            key: Cache key to look up
-
-        Returns:
-            Cached value if exists and not expired, None otherwise
         """
-        try:
-            client = await self._ensure_client()
-            value = await client.get(key)
+        Get cached value for a key from Redis.
+
+        :param key: Cache key to look up
+        :return: Cached value if exists and not expired, None otherwise
+        """
+        with cache_wrap_error("get", backend="redis"):
+            value = await self.client.get(key)
             if value is None:
                 return None
 
-            logger.debug("Cache: got value for key %s", key)
-            return json.loads(value)
-        except (aioredis.RedisError, json.JSONDecodeError) as e:
-            logger.error("Redis cache: error getting key %s: %s", key, e)
-            return None
+            decoded: CacheValueType = json.loads(value)
+
+        logger.debug("Cache[redis]: got value for key %s", key)
+        return decoded
 
     async def set(self, key: str, value: CacheValueType, ttl: int | None = None) -> None:
-        """Set new cache value for key.
-
-        Args:
-            key: Cache key to store value
-            value: Value to cache
-            ttl: TTL in seconds (uses default if None)
         """
-        try:
-            client = await self._ensure_client()
+        Set new cache value for key in Redis.
+
+        :param key: Cache key to store value
+        :param value: Value to cache
+        :param ttl: TTL in seconds (uses default if None)
+        """
+        ttl_seconds = ttl or self._default_ttl
+        with cache_wrap_error("set", backend="redis"):
             serialized = json.dumps(value)
-            ttl_seconds = ttl if ttl is not None else self._default_ttl
-            await client.setex(key, ttl_seconds, serialized)
-            logger.debug("Cache: set value for key %s | ttl: %i", key, ttl_seconds)
-        except (aioredis.RedisError, (TypeError, ValueError)) as e:
-            logger.error("Redis cache: error setting key %s: %s", key, e)
+            await self.client.setex(key, ttl_seconds, serialized)
 
-    async def invalidate(self, key: str | None = None) -> None:
-        """Force cache invalidation.
+        logger.debug("Cache[redis]: set value for key %s | ttl: %i", key, ttl_seconds)
 
-        Args:
-            key: Specific key to invalidate, if None - invalidate all cache (FLUSHDB)
+    async def invalidate(
+        self,
+        key: str | None = None,
+        pattern: str | Literal["*"] | None = None,
+    ) -> None:
         """
-        try:
-            client = await self._ensure_client()
-            if key is None:
-                await client.flushdb()
-                logger.debug("Cache: invalidated all keys")
+        Force cache invalidation for a specific key or pattern in Redis.
+
+        :param key: Specific key to invalidate, if None - invalidate all cache (FLUSHDB)
+        :param pattern: Pattern to invalidate, if None - invalidate all cache
+        :raises: ValueError: If key or pattern is not provided
+        """
+
+        with cache_wrap_error("invalidate", backend="redis"):
+            if pattern == "*":
+                logger.debug("Cache[redis]: invalidating all keys")
+                await self.client.flushdb()
+                return
+
+            if pattern:
+                prefix = pattern.removesuffix("*")
+                keys_to_remove = [key for key in await self.client.keys(pattern)]
+                await self.client.delete(*keys_to_remove)
+                logger.debug(
+                    "Cache[redis]: invalidated %i keys with prefix %s",
+                    len(keys_to_remove),
+                    prefix,
+                )
+
+            elif key:
+                logger.debug("Cache[redis]: invalidating key %s", key)
+                await self.client.delete(key)
             else:
-                await client.delete(key)
-                logger.debug("Cache: invalidated key %s", key)
-        except aioredis.RedisError as e:
-            logger.error("Redis cache: error invalidating key %s: %s", key, e)
-
-    async def invalidate_pattern(self, prefix: str) -> None:
-        """Invalidate all cache keys starting with the prefix.
-
-        Args:
-            prefix: Prefix to match keys (e.g., "active_releases_page_")
-        """
-        try:
-            client = await self._ensure_client()
-            pattern = f"{prefix}*"
-            keys = await client.keys(pattern)
-            if keys:
-                await client.delete(*keys)
-                logger.debug("Cache: invalidated %i keys with prefix %s", len(keys), prefix)
-        except aioredis.RedisError as e:
-            logger.error("Redis cache: error invalidating pattern %s: %s", prefix, e)
+                raise ValueError("Cache[redis]: key or pattern is required for invalidation")
 
 
-def get_cache() -> CacheProtocol:
+def get_cache(backend: Literal["redis", "memory"] = "redis") -> CacheProtocol:
     """Get cache instance based on configuration.
 
-    Returns:
-        CacheProtocol instance (InMemoryCache or RedisCache)
+    :param backend: Cache backend to use (redis or memory)
+    :return: CacheProtocol instance (InMemoryCache or RedisCache)
     """
-    from src.settings import get_app_settings
+    if backend == "memory":
+        logger.info("Cache: requested InMemoryCache")
+        return InMemoryCache()
 
     settings = get_app_settings()
-    if settings.redis.use_redis:
-        try:
-            return RedisCache(
-                host=settings.redis.host,
-                port=settings.redis.port,
-                db=settings.redis.db,
-            )
-        except Exception as e:
-            logger.error("Failed to initialize Redis cache, falling back to InMemoryCache: %s", e)
-            return InMemoryCache()
 
+    if settings.use_redis:
+        logger.info("Cache: requested RedisCache and redis is enabled")
+        return RedisCache(get_redis_client())
+
+    logger.info("Cache: redis is disabled, returning InMemoryCache")
     return InMemoryCache()
 
 
@@ -238,5 +253,5 @@ async def invalidate_release_cache() -> None:
     prefix = CACHE_KEY_ACTIVE_RELEASES_PAGE.replace("{offset}_{limit}", "")
     # Invalidate all paginated cache keys
     cache: CacheProtocol = get_cache()
-    await cache.invalidate_pattern(prefix)
+    await cache.invalidate(pattern=f"{prefix}*")
     logger.debug("[CACHE] Invalidated: all paginated pages with prefix %s", prefix)

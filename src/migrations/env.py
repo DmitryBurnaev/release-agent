@@ -25,7 +25,7 @@ if config.config_file_name is not None:
 db_settings = get_db_settings()
 
 target_metadata = BaseModel.metadata
-config.set_main_option("sqlalchemy.url", db_settings.database_dsn)
+config.set_main_option("sqlalchemy.url", db_settings.dsn)
 
 
 def run_migrations_offline() -> None:

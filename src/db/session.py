@@ -44,7 +44,7 @@ class AsyncDBConnectors:
                     self.settings.pool_min_size or 5
                 )
 
-            engine = create_async_engine(self.settings.database_dsn, **extra_kwargs)
+            engine = create_async_engine(self.settings.dsn, **extra_kwargs)
             session_factory = async_sessionmaker(
                 bind=engine,
                 expire_on_commit=False,

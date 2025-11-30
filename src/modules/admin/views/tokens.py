@@ -1,6 +1,5 @@
 import logging
 import datetime
-from typing import cast
 
 from sqladmin import action
 from starlette.datastructures import URL
@@ -11,6 +10,7 @@ from src.db.repositories import TokenRepository
 from src.db.services import SASessionUOW
 from src.db.models import BaseModel, Token
 from src.services import cache as cache_service
+from src.services.cache import invalidate_release_cache
 from src.utils import admin_get_link
 from src.modules.auth.tokens import make_api_token
 from src.modules.admin.views.base import BaseModelView, FormDataType
@@ -41,6 +41,7 @@ class TokenAdminView(BaseModelView, model=Token):
     details_template = "token_details.html"
     custom_post_create = True
 
+    @invalidate_releases_decorator
     async def insert_model(self, request: Request, data: FormDataType) -> Token:
         """
         Create a new token and save it to the database with generated token and its hashed value
@@ -52,11 +53,9 @@ class TokenAdminView(BaseModelView, model=Token):
         token_info = make_api_token(expires_at=expires_at, settings=self.app.settings)
         data["token"] = token_info.hashed_value
         token: Token = await super().insert_model(request, data)
-        # TODO: support in_memory=True
-        cache: cache_service.CacheProtocol = cache_service.get_cache(in_memory=True)
-        await cache.set(
-            f"token__{token.id}", token_info.value, ttl=10
-        )  # 10 seconds for showing to user
+        cache = cache_service.get_cache(backend="memory")
+        # 10 seconds for showing to user
+        await cache.set(f"token__{token.id}", token_info.value, ttl=10)
         return token
 
     async def get_object_for_details(self, request: Request) -> Token:
@@ -64,7 +63,7 @@ class TokenAdminView(BaseModelView, model=Token):
         Get token object and show it in the details page.
         """
         token: Token = await super().get_object_for_details(request)
-        cache: cache_service.CacheProtocol = cache_service.get_cache(in_memory=True)
+        cache = cache_service.get_cache(backend="memory")
         cache_key = f"token__{token.id}"
         cached_value = await cache.get(cache_key)
         token.raw_token = str(cached_value) if cached_value else ""
