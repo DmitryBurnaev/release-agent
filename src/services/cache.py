@@ -12,7 +12,7 @@ from src.exceptions import CacheBackendError
 from src.settings import get_app_settings
 from src.utils import singleton
 
-logger = logging.getLogger("cache")
+logger = logging.getLogger(__name__)
 DEFAULT_CACHE_TTL: int = 3600
 CacheValueType: TypeAlias = str | list[dict[str, Any]] | dict[str, Any]
 type CacheOperation = Literal["get", "set", "invalidate", "invalidate_pattern"]
@@ -51,8 +51,8 @@ def cache_wrap_error(
     try:
         yield
     except aioredis.RedisError as exc:
-        logger.error("Cache[%s:%s]  connection error: %s", backend, operation, exc)
-        raise CacheBackendError(f"Redis connection error: {exc}") from exc
+        logger.error("Cache[%s:%s] execution error: %s", backend, operation, exc)
+        raise CacheBackendError(f"Redis execution error: {exc}") from exc
 
     except (TypeError, ValueError) as exc:
         logger.error("Cache[%s:%s] common error: %s", backend, operation, exc)
@@ -131,12 +131,13 @@ class InMemoryCache(CacheProtocol):
                     len(keys_to_remove),
                     prefix,
                 )
+        elif key:
+            if key in self._data:
+                del self._data[key]
+                del self._last_update[key]
 
-        if key is None:
-            self._data.clear()
-            self._last_update.clear()
-
-        raise ValueError("Cache[memory]: key or pattern is required for invalidation")
+        else:
+            raise ValueError("Cache[memory]: key or pattern is required for invalidation")
 
 
 @singleton
@@ -207,19 +208,20 @@ class RedisCache(CacheProtocol):
 
         with cache_wrap_error("invalidate", backend="redis"):
             if pattern == "*":
-                logger.debug("Cache[redis]: invalidating all keys")
+                logger.info("Cache[redis]: invalidating all keys")
                 await self.client.flushdb()
                 return
 
             if pattern:
                 prefix = pattern.removesuffix("*")
                 keys_to_remove = [key for key in await self.client.keys(pattern)]
-                await self.client.delete(*keys_to_remove)
-                logger.debug(
-                    "Cache[redis]: invalidated %i keys with prefix %s",
-                    len(keys_to_remove),
-                    prefix,
-                )
+                if keys_to_remove:
+                    await self.client.delete(*keys_to_remove)
+                    logger.debug(
+                        "Cache[redis]: invalidated %i keys with prefix %s",
+                        len(keys_to_remove),
+                        prefix,
+                    )
 
             elif key:
                 logger.debug("Cache[redis]: invalidating key %s", key)
@@ -235,16 +237,16 @@ def get_cache(backend: Literal["redis", "memory"] = "redis") -> CacheProtocol:
     :return: CacheProtocol instance (InMemoryCache or RedisCache)
     """
     if backend == "memory":
-        logger.info("Cache: requested InMemoryCache")
+        logger.debug("Cache: requested InMemoryCache")
         return InMemoryCache()
 
     settings = get_app_settings()
 
     if settings.use_redis:
-        logger.info("Cache: requested RedisCache and redis is enabled")
+        logger.debug("Cache: requested RedisCache and redis is enabled")
         return RedisCache(get_redis_client())
 
-    logger.info("Cache: redis is disabled, returning InMemoryCache")
+    logger.debug("Cache: redis is disabled, returning InMemoryCache")
     return InMemoryCache()
 
 
@@ -254,4 +256,4 @@ async def invalidate_release_cache() -> None:
     # Invalidate all paginated cache keys
     cache: CacheProtocol = get_cache()
     await cache.invalidate(pattern=f"{prefix}*")
-    logger.debug("[CACHE] Invalidated: all paginated pages with prefix %s", prefix)
+    logger.info("[CACHE] Invalidated: all paginated pages with prefix %s", prefix)
