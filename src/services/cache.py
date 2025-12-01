@@ -10,7 +10,7 @@ from src.constants import CACHE_KEY_ACTIVE_RELEASES_PAGE
 from src.db.redis import get_redis_client
 from src.exceptions import CacheBackendError
 from src.settings import get_app_settings
-from src.utils import singleton
+from src.utils import singleton, cut_string
 
 logger = logging.getLogger(__name__)
 DEFAULT_CACHE_TTL: int = 3600
@@ -48,6 +48,7 @@ def cache_wrap_error(
     :return: Generator to yield the context manager
     :raises: CacheBackendError: If any error occurs while using the cache
     """
+    logger.debug("Cache[%s:%s] start execution...", backend, operation)
     try:
         yield
     except aioredis.RedisError as exc:
@@ -175,7 +176,11 @@ class RedisCache(CacheProtocol):
 
             decoded: CacheValueType = json.loads(value)
 
-        logger.debug("Cache[redis]: got value for key %s", key)
+        logger.debug(
+            "Cache[redis:get] got value for key %s | value: %s",
+            key,
+            cut_string(str(decoded), max_length=64),
+        )
         return decoded
 
     async def set(self, key: str, value: CacheValueType, ttl: int | None = None) -> None:
@@ -191,7 +196,12 @@ class RedisCache(CacheProtocol):
             serialized = json.dumps(value)
             await self.client.setex(key, ttl_seconds, serialized)
 
-        logger.debug("Cache[redis]: set value for key %s | ttl: %i", key, ttl_seconds)
+        logger.debug(
+            "Cache[redis:set] key %s | ttl: %i | value: %s",
+            key,
+            ttl_seconds,
+            cut_string(serialized, max_length=64),
+        )
 
     async def invalidate(
         self,

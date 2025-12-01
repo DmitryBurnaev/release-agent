@@ -64,7 +64,7 @@ async def get_active_releases(
             offset=offset,
             limit=limit,
         )
-        await cache.set(cache_key, response_result.model_dump_json())
+        await cache.set(cache_key, response_result.model_dump(mode="json"))
         logger.info(
             "[API] Public: Releases got from DB and cached: %i releases | total: %i | latest: %s",
             len(response_result.items),

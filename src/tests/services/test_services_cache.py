@@ -50,7 +50,7 @@ class TestCache:
         assert result2 == "value2"
 
         # Invalidate all
-        await cache.invalidate()
+        await cache.invalidate(pattern="*")
         result1 = await cache.get("key1")
         result2 = await cache.get("key2")
         assert result1 is None
