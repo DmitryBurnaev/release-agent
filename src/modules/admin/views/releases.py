@@ -56,7 +56,7 @@ def _make_date_formatter(column_name: str) -> Any:
     return formatter
 
 
-def invalidate_releases_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+def _invalidate_releases(func: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator to invalidate releases cache after the function is called"""
 
     @functools.wraps(func)
@@ -115,9 +115,9 @@ class ReleaseAdminView(BaseModelView, model=Release):
     column_default_li = ()
     form_overrides = dict(notes=HiddenField)
     _cached_query: ReleaseSelectT
-    update_model = invalidate_releases_decorator(BaseModelView.update_model)
-    insert_model = invalidate_releases_decorator(BaseModelView.insert_model)
-    delete_model = invalidate_releases_decorator(BaseModelView.delete_model)
+    update_model = _invalidate_releases(BaseModelView.update_model)
+    insert_model = _invalidate_releases(BaseModelView.insert_model)
+    delete_model = _invalidate_releases(BaseModelView.delete_model)
 
     def list_query(self, request: Request) -> ReleaseSelectT:
         """Search licenses by requested filters"""
@@ -148,6 +148,7 @@ class ReleaseAdminView(BaseModelView, model=Release):
         add_in_list=True,
         confirmation_message="Are you sure you want to deactivate selected releases?",
     )
+    @_invalidate_releases
     async def deactivate_releases(self, request: Request) -> Response:
         """Deactivate releases by their IDs"""
         return await self._set_active(request, is_active=False)
@@ -159,11 +160,11 @@ class ReleaseAdminView(BaseModelView, model=Release):
         add_in_list=True,
         confirmation_message="Are you sure you want to activate selected releases?",
     )
+    @_invalidate_releases
     async def activate_releases(self, request: Request) -> Response:
         """Activate releases by their IDs"""
         return await self._set_active(request, is_active=True)
 
-    @invalidate_releases_decorator
     async def _set_active(self, request: Request, is_active: bool) -> Response:
         """Set active status for releases by their IDs"""
         release_ids: list[int] = [int(pk) for pk in request.query_params.get("pks", "").split(",")]
