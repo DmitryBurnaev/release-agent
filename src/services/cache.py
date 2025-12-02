@@ -252,7 +252,7 @@ def get_cache(backend: Literal["redis", "memory"] = "redis") -> CacheProtocol:
 
     settings = get_app_settings()
 
-    if settings.use_redis:
+    if settings.flags.use_redis:
         logger.debug("Cache: requested RedisCache and redis is enabled")
         return RedisCache(get_redis_client())
 

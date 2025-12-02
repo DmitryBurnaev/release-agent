@@ -16,7 +16,7 @@ from src.tests.mocks import MockAPIToken, MockUser, MockTestResponse, MockHTTPxC
 
 
 MINIMAL_ENV_VARS = {
-    "API_DOCS_ENABLED": "true",
+    "FLAG_API_DOCS_ENABLED": "true",
     "APP_SECRET_KEY": "test-key",
     "ADMIN_PASSWORD": "test-password",
 }

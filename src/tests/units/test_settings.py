@@ -18,7 +18,7 @@ class TestAppSettings:
     def test_default_settings(self) -> None:
         get_app_settings.cache_clear()
         settings = AppSettings(_env_file=None)  # type: ignore
-        assert settings.api_docs_enabled is True
+        assert settings.flags.api_docs_enabled is False
         assert settings.app_host == "localhost"
         assert settings.app_port == 8004
         assert settings.app_secret_key.get_secret_value() == "test-key"

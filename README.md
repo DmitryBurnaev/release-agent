@@ -108,11 +108,11 @@ When enabled, the Swagger documentation is available at `/docs` and ReDoc at `/r
 
 | Variable                      | Type   |     Default | Required | Description                                        |
 |-------------------------------|--------|------------:|:--------:|----------------------------------------------------|
-| API_DOCS_ENABLED              | bool   |       false |          | Enable FastAPI docs (Swagger/ReDoc)                |
 | APP_SECRET_KEY                | string |           - |   yes    | Secret key                                         |
 | APP_HOST                      | string |   localhost |          | Host address for the application                   |
 | APP_PORT                      | int    |        8004 |          | Port for the application                           |
 | JWT_ALGORITHM                 | string |       HS256 |          | JWT algorithm                                      |
+| UT_TIMEZONE                   | string |        None |          | UI timezone (e.g. 'Europe/Moscow')                 |
 
 ### Admin Settings (AdminSettings, env prefix `ADMIN_`)
 
@@ -122,7 +122,7 @@ When enabled, the Swagger documentation is available at `/docs` and ReDoc at `/r
 | ADMIN_PASSWORD                | string |     release-admin! |          | Default (initial) admin password        |
 | ADMIN_SESSION_EXPIRATION_TIME | int    |             172800 |          | Admin session expiration time (seconds) |
 | ADMIN_BASE_URL                | string |              /radm |          | Admin panel base URL                    |
-| ADMIN_TITLE                   | string | releaseAgent Admin |          | Admin panel title                       |
+| ADMIN_TITLE                   | string |      Release Agent |          | Admin panel title                       |
 
 ### Logging Settings (LogSettings, env prefix `LOG_`)
 
@@ -135,9 +135,13 @@ When enabled, the Swagger documentation is available at `/docs` and ReDoc at `/r
 
 ### Feature Flags (FlagsSettings, env prefix `FLAG_`)
 
-| Variable          | Type | Default | Required | Description         |
-|-------------------|------|--------:|:--------:|---------------------|
-| FLAG_OFFLINE_MODE | bool |   false |          | Enable offline mode |
+| Variable               | Type | Default | Required | Description                         |
+|------------------------|------|--------:|:--------:|-------------------------------------|
+| FLAG_OFFLINE_MODE      | bool |   false |          | Enable offline mode                 |
+| FLAG_DEBUG_MODE        | bool |   false |          | Enable debug mode                   |
+| FLAG_API_DOCS_ENABLED  | bool |   false |          | Enable FastAPI docs (Swagger/ReDoc) |
+| FLAG_API_CACHE_ENABLED | bool |    true |          | Enable API response caching         |
+| FLAG_USE_REDIS         | bool |    true |          | Enable Redis cache backend          |
 
 ### Database (DBSettings, env prefix `DB_`)
 
@@ -146,24 +150,24 @@ When enabled, the Swagger documentation is available at `/docs` and ReDoc at `/r
 | DB_DRIVER        | string | postgresql+asyncpg |          | SQLAlchemy driver |
 | DB_HOST          | string |          localhost |          | Database host     |
 | DB_PORT          | int    |               5432 |          | Database port     |
-| DB_USERNAME      | string |           postgres |          | Database username |
+| DB_USER          | string |           postgres |          | Database username |
 | DB_PASSWORD      | string |           postgres |          | Database password |
-| DB_DATABASE      | string |      release_agent |          | Database name     |
+| DB_NAME          | string |      release_agent |          | Database name     |
 | DB_POOL_MIN_SIZE | int    |                  - |          | Pool min size     |
 | DB_POOL_MAX_SIZE | int    |                  - |          | Pool max size     |
 | DB_ECHO          | bool   |              false |          | SQLAlchemy echo   |
 
 ### Redis Settings (RedisSettings, env prefix `REDIS_`)
 
-| Variable        | Type   |            Default | Required | Description                                    |
-|-----------------|--------|-------------------:|:--------:|------------------------------------------------|
-| USE_REDIS_CACHE | bool   |              false |          | Enable Redis cache backend (also REDIS_USE_REDIS) |
-| REDIS_USE_REDIS | bool   |              false |          | Enable Redis cache backend (alternative to USE_REDIS_CACHE) |
-| REDIS_HOST      | string |          localhost |          | Redis host                                     |
-| REDIS_PORT      | int    |               6379 |          | Redis port                                     |
-| REDIS_DB        | int    |                  0 |          | Redis database number                          |
-
-**Note:** Both `USE_REDIS_CACHE` and `REDIS_USE_REDIS` are supported. `USE_REDIS_CACHE` takes precedence if both are set.
+| Variable                     | Type   |   Default | Required | Description                            |
+|------------------------------|--------|----------:|:--------:|----------------------------------------|
+| REDIS_HOST                   | string | localhost |          | Redis host                             |
+| REDIS_PORT                   | int    |      6379 |          | Redis port                             |
+| REDIS_DB                     | int    |         0 |          | Redis database number                  |
+| REDIS_SOCKET_CONNECT_TIMEOUT | int    |         5 |          | Socket connection timeout (seconds)    |
+| REDIS_SOCKET_TIMEOUT         | int    |         5 |          | Socket timeout (seconds)               |
+| REDIS_DECODE_RESPONSES       | bool   |      true |          | Decode responses from bytes to strings |
+| REDIS_MAX_CONNECTIONS        | int    |         5 |          | Maximum number of connections in pool  |
 
 ### Container / Infra
 
