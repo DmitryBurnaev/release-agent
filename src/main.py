@@ -45,7 +45,7 @@ async def lifespan(app: ReleaseAgentAPP) -> AsyncGenerator[None, None]:
         logger.info("DB connection startup completed")
 
     # Check Redis availability if enabled
-    if app.settings.use_redis:
+    if app.settings.flags.use_redis:
         try:
             await initialize_redis()
         except Exception as exc:
@@ -69,7 +69,7 @@ async def lifespan(app: ReleaseAgentAPP) -> AsyncGenerator[None, None]:
     else:
         logger.info("Application shutdown completed successfully")
 
-    if app.settings.use_redis:
+    if app.settings.flags.use_redis:
         try:
             await close_redis()
         except Exception as exc:
@@ -97,8 +97,8 @@ def make_app(settings: AppSettings | None = None) -> ReleaseAgentAPP:
     app = ReleaseAgentAPP(
         title="Release Agent API",
         description="API for managing releases",
-        docs_url="/api/docs/" if settings.api_docs_enabled else None,
-        redoc_url="/api/redoc/" if settings.api_docs_enabled else None,
+        docs_url="/api/docs/" if settings.flags.api_docs_enabled else None,
+        redoc_url="/api/redoc/" if settings.flags.api_docs_enabled else None,
         lifespan=lifespan,
     )
     app.set_settings(settings)

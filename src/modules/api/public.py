@@ -34,7 +34,7 @@ async def get_active_releases(
     cached_result: dict[str, Any] | None = None
     cache: CacheProtocol = get_cache()
     cache_key = CACHE_KEY_ACTIVE_RELEASES_PAGE.format(offset=offset, limit=limit)
-    if settings.api_cache_enabled:
+    if settings.flags.api_cache_enabled:
         cached_data = await cache.get(cache_key)
         cached_result = cached_data if cached_data and isinstance(cached_data, dict) else None
 

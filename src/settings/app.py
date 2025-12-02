@@ -26,6 +26,9 @@ class FlagsSettings(BaseSettings):
 
     offline_mode: bool = False
     debug_mode: bool = False
+    api_docs_enabled: bool = False
+    api_cache_enabled: bool = True
+    use_redis: bool = True
 
 
 class AdminSettings(BaseSettings):
@@ -48,8 +51,6 @@ class AppSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    api_docs_enabled: bool = False
-    api_cache_enabled: bool = True
     app_secret_key: SecretStr = Field(description="Application secret key")
     app_host: str = "localhost"
     app_port: int = 8004
@@ -57,7 +58,6 @@ class AppSettings(BaseSettings):
     admin: AdminSettings = Field(default_factory=AdminSettings)
     flags: FlagsSettings = Field(default_factory=FlagsSettings)
     log: LogSettings = Field(default_factory=LogSettings)
-    use_redis: bool = Field(default=True, description="Enable Redis cache backend")
     ui_timezone: ZoneInfo | None = Field(
         default=None,
         description="UI timezone (from env UT_TIMEZONE, e.g. 'Europe/Moscow')",
