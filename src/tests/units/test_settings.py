@@ -8,9 +8,15 @@ from src.settings import AppSettings, get_app_settings
 from src.settings.log import LOG_LEVELS_PATTERN, LogSettings
 
 MINIMAL_ENV_VARS = {
-    "SECRET_KEY": "test-key",
+    "APP_SECRET_KEY": "test-key",
     "ADMIN_PASSWORD": "test-password",
 }
+
+
+@pytest.fixture(autouse=True)
+def minimal_env_vars() -> None:
+    """Overrides global MINIMAL_ENV_VARS"""
+    pass
 
 
 class TestAppSettings:
@@ -18,7 +24,6 @@ class TestAppSettings:
     def test_default_settings(self) -> None:
         get_app_settings.cache_clear()
         settings = AppSettings(_env_file=None)  # type: ignore
-        assert settings.flags.api_docs_enabled is False
         assert settings.app_host == "localhost"
         assert settings.app_port == 8004
         assert settings.app_secret_key.get_secret_value() == "test-key"
@@ -27,7 +32,11 @@ class TestAppSettings:
         assert settings.admin.username == "admin"
         assert settings.admin.password.get_secret_value() == "test-password"
         assert settings.admin.session_expiration_time == 2 * 24 * 3600
+        # check flags
+        assert settings.flags.use_redis is True
         assert settings.flags.offline_mode is False
+        assert settings.flags.api_docs_enabled is False
+        assert settings.flags.api_cache_enabled is True
 
     @pytest.mark.parametrize("log_level", LOG_LEVELS_PATTERN.split("|"))
     def test_valid_log_levels(self, log_level: str) -> None:
