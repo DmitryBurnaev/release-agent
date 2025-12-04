@@ -15,3 +15,30 @@ RENDER_KW_REQ = RENDER_KW | {"required": True}
 CACHE_KEY_ACTIVE_RELEASES = "active_releases"
 CACHE_KEY_ACTIVE_RELEASES_PAGE = "active_releases_page_{offset}_{limit}"
 CACHE_TTL_ACTIVE_RELEASES = 3600 * 24 * 14  # 14 days
+
+# Headers to exclude when proxying requests
+PROXY_EXCLUDED_REQUEST_HEADERS = {
+    "host",
+    "content-length",
+    "connection",
+    "transfer-encoding",
+    "upgrade",
+    "proxy-connection",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+}
+
+PROXY_EXCLUDED_RESPONSE_HEADERS = {
+    "content-encoding",
+    "content-length",
+    "transfer-encoding",
+    "connection",
+    "upgrade",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+}
