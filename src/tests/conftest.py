@@ -20,6 +20,7 @@ MINIMAL_ENV_VARS = {
     "ADMIN_PASSWORD": "test-password",
     "FLAG_API_DOCS_ENABLED": "true",
     "FLAG_USE_REDIS": "false",
+    "CH_PASSWORD": "test-clickhouse-password",
 }
 
 
@@ -41,8 +42,24 @@ def minimal_env_vars() -> Generator[None, Any, None]:
         yield
 
 
+@pytest.fixture
+def mock_clickhouse() -> Generator[None, None, None]:
+    """Mock ClickHouse initialization to avoid connection errors in tests"""
+    with (
+        patch("src.main.initialize_clickhouse"),
+        patch(
+            "src.main.close_clickhouse",
+        ),
+        patch("src.main.create_analytics_table"),
+    ):
+        yield
+
+
 @pytest.fixture(autouse=True)
-async def test_app(app_settings_test: AppSettings) -> AsyncGenerator[ReleaseAgentAPP, Any]:
+async def test_app(
+    app_settings_test: AppSettings,
+    mock_clickhouse: None,
+) -> AsyncGenerator[ReleaseAgentAPP, Any]:
     test_app = make_app(settings=app_settings_test)
     test_app.dependency_overrides[get_app_settings] = lambda: test_app.settings
     await initialize_database()

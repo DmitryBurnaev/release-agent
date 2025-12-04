@@ -21,6 +21,7 @@ from src.modules.admin.views import (
     ReleaseAdminView,
 )
 from src.db import session as db_session
+from src.modules.admin.views.analytics import AnalyticsDashboardAdminView, AnalyticsQueriesAdminView
 from src.services.counters import AdminCounter
 from src.settings import get_app_settings
 
@@ -32,6 +33,8 @@ ADMIN_VIEWS: tuple[type[BaseView], ...] = (
     UserAdminView,
     TokenAdminView,
     ReleaseAdminView,
+    AnalyticsDashboardAdminView,
+    AnalyticsQueriesAdminView,
 )
 
 logger = logging.getLogger(__name__)

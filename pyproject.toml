@@ -18,6 +18,7 @@ dependencies = [
     "pycryptodomex==3.23.0",       # for API key encryptions
     "uvloop==0.22.1",
     "redis==7.1.0",                # for Redis cache backend
+    "clickhouse-connect==0.10.0",  # for ClickHouse analytics
 ]
 
 [dependency-groups]
