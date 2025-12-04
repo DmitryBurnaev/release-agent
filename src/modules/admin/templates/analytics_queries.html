@@ -1,0 +1,13 @@
+{% extends "sqladmin/layout.html" %}
+{% block head %}
+    {{ super() }}
+    <style>
+        .analytics-frame{
+            height: 90vh;
+        }
+    </style>
+
+{% endblock %}
+{% block content %}
+    <iframe class="analytics-frame" src="http://127.0.0.1:8123/play?user=releases#" frameborder="0"></iframe>
+{% endblock %}

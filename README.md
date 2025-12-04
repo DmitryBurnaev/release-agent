@@ -61,6 +61,7 @@ For detailed server installation instructions, see [INSTALL.md](INSTALL.md).
    - `APP_SECRET_KEY` - Secret key for the application
    - `DB_PASSWORD` - Database password
    - `ADMIN_PASSWORD` - Default admin password
+   - `CH_PASSWORD` - ClickHouse password
 
 3. Review and update your `.env` file with any additional required settings.
 
@@ -168,6 +169,47 @@ When enabled, the Swagger documentation is available at `/docs` and ReDoc at `/r
 | REDIS_SOCKET_TIMEOUT         | int    |         5 |          | Socket timeout (seconds)               |
 | REDIS_DECODE_RESPONSES       | bool   |      true |          | Decode responses from bytes to strings |
 | REDIS_MAX_CONNECTIONS        | int    |         5 |          | Maximum number of connections in pool  |
+
+### ClickHouse Settings (ClickHouseSettings, env prefix `CH_`)
+
+| Variable      | Type   |   Default | Required | Description                              |
+|---------------|--------|----------:|:--------:|------------------------------------------|
+| CH_HOST       | string | localhost |          | ClickHouse host                          |
+| CH_PORT       | int    |      8123 |          | ClickHouse HTTP port                     |
+| CH_USER       | string |   default |          | ClickHouse username                      |
+| CH_PASSWORD   | string |         - |     yes  | ClickHouse password                      |
+| CH_DATABASE   | string |   default |          | ClickHouse database name                 |
+| CH_SECURE     | bool   |     false |          | Use HTTPS connection                     |
+| CH_TIMEOUT    | int    |        10 |          | Connection timeout (seconds)            |
+
+### Analytics
+
+The application automatically logs all requests to the `/public/releases` endpoint to ClickHouse for analytics purposes.
+
+**Logged Data:**
+- Request timestamp
+- Client version (optional query parameter)
+- Installation ID (optional query parameter)
+- Corporate client flag (optional query parameter)
+- Request path and method
+- HTTP response status
+- Response time (milliseconds)
+- Client IP address
+- User-Agent header
+
+**API Endpoint:**
+```
+GET /public/releases?offset=0&limit=10&client_version=1.0.0&installation_id=abc123&is_corporate=true
+```
+
+**Query Parameters:**
+- `offset` - Number of items to skip (default: 0)
+- `limit` - Maximum number of items to return (default: 10, max: 100)
+- `client_version` - Client version string (optional)
+- `installation_id` - Installation ID (optional)
+- `is_corporate` - Whether client is corporate (optional, boolean)
+
+Analytics logging is performed asynchronously and does not block the API response. If ClickHouse is unavailable, the application will continue to function normally, but analytics data will not be logged.
 
 ### Container / Infra
 

@@ -7,6 +7,7 @@ import uvicorn
 from fastapi import FastAPI, Depends
 
 from src.db.redis import close_redis, initialize_redis
+from src.db.clickhouse import close_clickhouse, initialize_clickhouse
 from src.modules.auth.dependencies import verify_api_token
 from src.modules.admin.app import make_admin
 from src.exceptions import AppSettingsError, StartupError
@@ -55,6 +56,15 @@ async def lifespan(app: ReleaseAgentAPP) -> AsyncGenerator[None, None]:
     else:
         logger.info("Redis is not enabled, skipping initialization")
 
+    # Initialize ClickHouse for analytics
+    try:
+        initialize_clickhouse()
+    except Exception as exc:
+        logger.warning("Failed to initialize ClickHouse connection: %r", exc)
+        logger.warning("Analytics will be disabled")
+    else:
+        logger.info("ClickHouse connection startup completed")
+
     logger.info("Setting up admin application...")
     make_admin(app)
 
@@ -76,6 +86,13 @@ async def lifespan(app: ReleaseAgentAPP) -> AsyncGenerator[None, None]:
             logger.error("Error during application shutdown: %r", exc)
         else:
             logger.info("Redis connection shutdown completed successfully")
+
+    try:
+        close_clickhouse()
+    except Exception as exc:
+        logger.error("Error during ClickHouse shutdown: %r", exc)
+    else:
+        logger.info("ClickHouse connection shutdown completed successfully")
 
     logger.info("=====")
 

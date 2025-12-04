@@ -1,11 +1,11 @@
 from functools import lru_cache, cached_property
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.settings.utils import prepare_settings
 
-__all__ = ("get_db_settings",)
+__all__ = ("get_db_settings", "get_redis_settings", "get_clickhouse_settings")
 
 
 class DBSettings(BaseSettings):
@@ -61,3 +61,29 @@ def get_db_settings() -> DBSettings:
 def get_redis_settings() -> RedisSettings:
     """Prepares redis settings from environment variables"""
     return prepare_settings(RedisSettings)
+
+
+class ClickHouseSettings(BaseSettings):
+    """ClickHouse settings which are loaded from environment variables"""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_prefix="CH_")
+
+    host: str = "localhost"
+    port: int = 8123
+    user: str = "releases"
+    password: SecretStr = Field(description="ClickHouse password")
+    database: str = "releases"
+    secure: bool = False
+    timeout: int = 10
+    analytics_table_name: str = "release_requests"
+
+    @cached_property
+    def info(self) -> str:
+        """Get connection info string for logging"""
+        return f"{self.host}:{self.port} (database={self.database})"
+
+
+@lru_cache
+def get_clickhouse_settings() -> ClickHouseSettings:
+    """Prepares ClickHouse settings from environment variables"""
+    return prepare_settings(ClickHouseSettings)

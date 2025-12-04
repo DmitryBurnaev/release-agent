@@ -13,10 +13,13 @@ services:
       APP_SERVICE: app
       DB_HOST: db
       REDIS_HOST: redis
+      CH_HOST: clickhouse
     depends_on:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      clickhouse:
         condition: service_healthy
 
   db:
@@ -47,6 +50,27 @@ services:
       retries: 5
     volumes:
       - ${PWD}/.data/redis:/data
+
+  clickhouse:
+    container_name: release-agent-clickhouse
+    image: clickhouse:25.9
+    env_file:
+      - .env
+    environment:
+      CLICKHOUSE_DB: ${CH_DATABASE}
+      CLICKHOUSE_USER: ${CH_USER}
+      CLICKHOUSE_PASSWORD: ${CH_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+    volumes:
+      - ${PWD}/.data/clickhouse:/var/lib/clickhouse
+    ports:
+      - "127.0.0.1:8123:8123"
+      - "127.0.0.1:9000:9000"
 
   test:
     container_name: release-agent-test

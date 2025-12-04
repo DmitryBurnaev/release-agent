@@ -14,6 +14,7 @@ def main() -> None:
     app_secret_key = secrets.token_urlsafe(32)
     db_password = secrets.token_urlsafe(15)
     admin_password = secrets.token_urlsafe(15)
+    ch_password = secrets.token_urlsafe(15)
 
     # Prepare secrets for .env file
     env_secrets = [
@@ -22,6 +23,7 @@ def main() -> None:
         f"DB_PASSWORD={db_password}",
         f"ADMIN_PASSWORD={admin_password}",
         f"APP_SECRET_KEY={app_secret_key}",
+        f"CH_PASSWORD={ch_password}",
     ]
 
     # Write to .env file
