@@ -82,6 +82,11 @@ class ClickHouseSettings(BaseSettings):
         """Get connection info string for logging"""
         return f"{self.host}:{self.port} (database={self.database})"
 
+    @cached_property
+    def http_url(self) -> str:
+        """Get HTTP URL for ClickHouse UI"""
+        return f"http://{self.host}:{self.port}"
+
 
 @lru_cache
 def get_clickhouse_settings() -> ClickHouseSettings:
