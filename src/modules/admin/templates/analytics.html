@@ -1,13 +1,36 @@
 {% extends "sqladmin/layout.html" %}
 {% block head %}
-    {{ super() }}
-    <style>
-        .analytics-frame{
-            height: 90vh;
-        }
-    </style>
+{{ super() }}
+<style>
+    .analytics-frame {
+        height: 90vh;
+    }
+</style>
 
 {% endblock %}
 {% block content %}
-    <iframe class="analytics-frame" src="{{ iframe_link }}" frameborder="0"></iframe>
+<iframe class="analytics-frame" id="analyticFrame" src="{{ iframe_link }}" frameborder="0"></iframe>
+<script type="application/javascript">
+    const analyticFrame = document.getElementById('analyticFrame');
+
+    analyticFrame.addEventListener('load', () => {
+        try {
+            const iframeWindow = analyticFrame.contentWindow;
+            const iframeDoc = iframeWindow?.document;
+            if (!iframeDoc) return;
+            const inputURL = iframeDoc.getElementById('url');
+            if (inputURL) {
+                // Set to the current domain dynamically
+                inputURL.value = window.location.origin + '{{proxy_path}}';
+            }
+
+            const inputQuery = iframeDoc.getElementById('query');
+            if (inputQuery) {
+                inputQuery.value = '{{default_query}}';
+            }
+        } catch (err) {
+            console.error("[Admin][Analytics] Failed to access iframe content or set input value:", err);
+        }
+    });
+</script>
 {% endblock %}
