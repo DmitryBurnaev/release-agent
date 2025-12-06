@@ -35,17 +35,14 @@ async def get_active_releases(
     background_tasks: BackgroundTasks,
     offset: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(10, ge=1, le=100, description="Maximum number of items to return"),
-    client_version: str | None = Query(None, description="Client version"),
-    installation_id: str | None = Query(None, description="Installation ID"),
-    is_corporate: bool | None = Query(None, description="Is corporate client"),
+    current_version: str | None = Query(None, description="Current client version"),
+    install_id: str | None = Query(None, description="Installation ID"),
+    is_corporate: bool | None = Query(None, description="Indicates if the client is corporate"),
+    is_internal: bool | None = Query(None, description="Indicates if the client is internal"),
 ) -> PaginatedResponse[ReleasePublicResponse]:
     """Get paginated list of active releases (public endpoint, no authentication required)"""
     start_time = time.time()
     logger.debug("[API] Public: Getting active releases (offset=%i, limit=%i)", offset, limit)
-
-    # Extract request metadata
-    ip_address = request.client.host if request.client else None
-    user_agent = request.headers.get("user-agent")
 
     settings = get_app_settings()
     cached_result: dict[str, Any] | None = None
@@ -99,15 +96,17 @@ async def get_active_releases(
     # Log request to analytics (non-blocking)
     analytics_request = ReleasesAnalyticsSchema(
         timestamp=utcnow(skip_tz=False),
+        client_version=current_version,
+        client_install_id=install_id,
+        client_is_corporate=is_corporate,
+        client_is_internal=is_internal,
+        client_ip_address=request.client.host if request.client else None,
+        client_user_agent=request.headers.get("user-agent"),
+        client_ref_url=request.headers.get("referer"),
+        response_latest_version=get_latest_version(response_result),
         response_status=response_status,
-        response_from_cache=bool(cached_result),
-        client_version=client_version,
-        latest_version=get_latest_version(response_result),
-        installation_id=installation_id,
-        is_corporate=is_corporate,
         response_time_ms=response_time_ms,
-        ip_address=ip_address,
-        user_agent=user_agent,
+        response_from_cache=bool(cached_result),
     )
     analytics_service = AnalyticsService(clickhouse_settings=get_clickhouse_settings())
     background_tasks.add_task(analytics_service.log_request, analytics_request)

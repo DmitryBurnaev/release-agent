@@ -3,7 +3,7 @@ import logging
 
 from clickhouse_connect.driver.client import Client as ClickhouseClient
 import clickhouse_connect.driver
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.utils import singleton
 from src.settings.db import ClickHouseSettings, get_clickhouse_settings
@@ -20,16 +20,18 @@ __all__ = (
 class ReleasesAnalyticsSchema(BaseModel):
     """Releases analytics schema for ClickHouse"""
 
-    timestamp: datetime
-    client_version: str | None
-    latest_version: str | None
-    installation_id: str | None
-    is_corporate: bool | None
-    response_status: int
-    response_time_ms: float | None
-    response_from_cache: bool | None
-    ip_address: str | None
-    user_agent: str | None
+    timestamp: datetime = Field(description="Timestamp of the request")
+    client_version: str | None = Field(description="Version of the client")
+    client_install_id: str | None = Field(description="Installation ID of the client")
+    client_is_corporate: bool | None = Field(description="Indicates if the client is corporate")
+    client_is_internal: bool | None = Field(description="Indicates if the client is internal")
+    client_ip_address: str | None = Field(description="IP address of the client")
+    client_user_agent: str | None = Field(description="User agent of the client")
+    client_ref_url: str | None = Field(description="Referer URL of the client")
+    response_latest_version: str | None = Field(description="Latest version provided to the client")
+    response_status: int = Field(description="HTTP response status code")
+    response_time_ms: float | None = Field(description="Time to generate the response in ms")
+    response_from_cache: bool | None = Field(description="Indicates if the response was from cache")
 
     @classmethod
     def create_table_query(cls, table_name: str) -> str:
@@ -39,14 +41,16 @@ class ReleasesAnalyticsSchema(BaseModel):
             (
                 timestamp DateTime DEFAULT now(),
                 client_version Nullable(String),
-                latest_version Nullable(String),
-                installation_id Nullable(String),
-                is_corporate Nullable(Bool),
+                client_install_id Nullable(String),
+                client_is_corporate Nullable(Bool),
+                client_is_internal Nullable(Bool),
+                client_ip_address Nullable(String),
+                client_user_agent Nullable(String),
+                client_ref_url Nullable(String)
+                response_latest_version Nullable(String),
                 response_status UInt16,
                 response_time_ms Nullable(Float32),
-                response_from_cache Nullable(Bool),
-                ip_address Nullable(String),
-                user_agent Nullable(String)
+                response_from_cache Nullable(Bool)
             )
             ENGINE = MergeTree()
             PARTITION BY toYYYYMM(timestamp)
