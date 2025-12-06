@@ -85,7 +85,8 @@ class ClickHouseSettings(BaseSettings):
     @cached_property
     def http_url(self) -> str:
         """Get HTTP URL for ClickHouse UI"""
-        return f"http://{self.host}:{self.port}"
+        schema = "https://" if self.secure else "http://"
+        return f"{schema}{self.host}:{self.port}"
 
 
 @lru_cache
