@@ -172,15 +172,15 @@ When enabled, the Swagger documentation is available at `/docs` and ReDoc at `/r
 
 ### ClickHouse Settings (ClickHouseSettings, env prefix `CH_`)
 
-| Variable      | Type   |   Default | Required | Description                              |
-|---------------|--------|----------:|:--------:|------------------------------------------|
-| CH_HOST       | string | localhost |          | ClickHouse host                          |
-| CH_PORT       | int    |      8123 |          | ClickHouse HTTP port                     |
-| CH_USER       | string |   default |          | ClickHouse username                      |
-| CH_PASSWORD   | string |         - |     yes  | ClickHouse password                      |
-| CH_DATABASE   | string |   default |          | ClickHouse database name                 |
-| CH_SECURE     | bool   |     false |          | Use HTTPS connection                     |
-| CH_TIMEOUT    | int    |        10 |          | Connection timeout (seconds)            |
+| Variable    | Type   |   Default | Required | Description                  |
+|-------------|--------|----------:|:--------:|------------------------------|
+| CH_HOST     | string | localhost |          | ClickHouse host              |
+| CH_PORT     | int    |      8123 |          | ClickHouse HTTP port         |
+| CH_USER     | string |  releases |          | ClickHouse username          |
+| CH_PASSWORD | string |         - |   yes    | ClickHouse password          |
+| CH_DATABASE | string |  releases |          | ClickHouse database name     |
+| CH_SECURE   | bool   |     false |          | Use HTTPS connection         |
+| CH_TIMEOUT  | int    |        10 |          | Connection timeout (seconds) |
 
 ### Analytics
 
