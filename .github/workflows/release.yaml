@@ -62,7 +62,6 @@ jobs:
           echo "VENDOR_ENCRYPTION_KEY=test" >> .env
           echo "ADMIN_PASSWORD=test" >> .env
           echo "CH_PASSWORD=test" >> .env
-          echo "FLAG_USE_REDIS=false" >> .env
           env >> .env
 
       - name: Build image
