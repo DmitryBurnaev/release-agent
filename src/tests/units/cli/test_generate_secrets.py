@@ -18,6 +18,7 @@ def mock_secrets() -> Generator[MagicMock, Any, None]:
             "test-secret-key-32-chars-long-for-testing",
             "test-db-password-15",
             "test-admin-password-15",
+            "test-ch-password-15",
         ]
         yield mock_token_urlsafe
 
@@ -48,6 +49,7 @@ def test_main_writes_secrets_to_env_file(
         "DB_PASSWORD=test-db-password-15",
         "ADMIN_PASSWORD=test-admin-password-15",
         "APP_SECRET_KEY=test-secret-key-32-chars-long-for-testing",
+        "CH_PASSWORD=test-ch-password-15",
         "",
     ]
     expected_content = "\n".join(expected_lines)
@@ -125,9 +127,10 @@ def test_main_generates_and_not_displays_secrets(
     assert "APP_SECRET_KEY=test-secret-key-32-chars-long-for-testing" not in output
     assert "DB_PASSWORD=test-db-password-15" not in output
     assert "ADMIN_PASSWORD=test-admin-password-15" not in output
+    assert "CH_PASSWORD=test-ch-password-15" not in output
 
     # Verify secrets.token_urlsafe was called exactly 4 times with correct parameters
-    assert mock_secrets.call_count == 3
+    assert mock_secrets.call_count == 4
     mock_secrets.assert_any_call(32)  # Called twice with 32
     mock_secrets.assert_any_call(15)  # Called twice with 15
 
@@ -144,6 +147,7 @@ def test_main_calls_secrets_token_urlsafe_with_correct_parameters(
         ((32,),),  # APP_SECRET_KEY
         ((15,),),  # DB_PASSWORD
         ((15,),),  # ADMIN_PASSWORD
+        ((15,),),  # CH_PASSWORD
     ]
 
     assert mock_secrets.call_args_list == expected_calls

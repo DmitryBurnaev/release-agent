@@ -28,6 +28,7 @@ class FlagsSettings(BaseSettings):
     debug_mode: bool = False
     api_docs_enabled: bool = False
     api_cache_enabled: bool = True
+    api_analytics_enabled: bool = True
     use_redis: bool = True
 
 

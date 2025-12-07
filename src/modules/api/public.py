@@ -71,7 +71,7 @@ async def get_active_releases(
             offset,
             limit,
         )
-        # TODO: refactor to use service layer
+        # TODO: cover with tests and refactor (use service layer instead)
         async with SASessionUOW() as uow:
             repo = ReleaseRepository(session=uow.session)
             releases, total = await repo.get_active_releases(offset=offset, limit=limit)
@@ -90,25 +90,28 @@ async def get_active_releases(
             )
         response_status = 200
 
-    # Calculate response time
-    response_time_ms = (time.time() - start_time) * 1000
-
     # Log request to analytics (non-blocking)
-    analytics_request = ReleasesAnalyticsSchema(
-        timestamp=utcnow(skip_tz=False),
-        client_version=current_version,
-        client_install_id=install_id,
-        client_is_corporate=is_corporate,
-        client_is_internal=is_internal,
-        client_ip_address=request.client.host if request.client else None,
-        client_user_agent=request.headers.get("user-agent"),
-        client_ref_url=request.headers.get("referer"),
-        response_latest_version=get_latest_version(response_result),
-        response_status=response_status,
-        response_time_ms=response_time_ms,
-        response_from_cache=bool(cached_result),
-    )
-    analytics_service = AnalyticsService(clickhouse_settings=get_clickhouse_settings())
-    background_tasks.add_task(analytics_service.log_request, analytics_request)
+    if settings.flags.api_analytics_enabled:
+        logger.debug("[API] Public: Logging request to analytics")
+        analytics_service = AnalyticsService(clickhouse_settings=get_clickhouse_settings())
+        analytics_service.log_request_async(
+            background_tasks=background_tasks,
+            request=ReleasesAnalyticsSchema(
+                timestamp=utcnow(skip_tz=False),
+                client_version=current_version,
+                client_install_id=install_id,
+                client_is_corporate=is_corporate,
+                client_is_internal=is_internal,
+                client_ip_address=request.client.host if request.client else None,
+                client_user_agent=request.headers.get("user-agent"),
+                client_ref_url=request.headers.get("referer"),
+                response_latest_version=get_latest_version(response_result),
+                response_status=response_status,
+                response_time_ms=(time.time() - start_time) * 1000,
+                response_from_cache=bool(cached_result),
+            ),
+        )
+    else:
+        logger.debug("[API] Public: Analytics disabled, skipping log request")
 
     return response_result
