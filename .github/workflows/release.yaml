@@ -3,13 +3,11 @@ on:
   push:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
-    branches:
-      - "feature/12-collect-analytics"
 
 env:
   REGISTRY: ghcr.io
   DOCKER_IMAGE_NAME: ${{ github.repository }}
-  DEBUG_DOCKER_IMAGE_TAG: 0.0.5-alfa
+  # DEBUG_DOCKER_IMAGE_TAG: 0.0.5-alfa
 
 jobs:
   prepare:
@@ -73,8 +71,7 @@ jobs:
         run: docker compose up --exit-code-from test test
 
   build:
-    needs: [prepare]
-#    needs: [prepare, test]
+    needs: [prepare, test]
     runs-on: ubuntu-latest
 
     permissions:

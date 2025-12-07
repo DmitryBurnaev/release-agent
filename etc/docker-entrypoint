@@ -3,7 +3,7 @@
 set -e
 
 # Define required environment variables as a space-separated string for POSIX sh compatibility
-required_env_vars="DB_USER DB_PASSWORD DB_NAME APP_SECRET_KEY ADMIN_PASSWORD"
+required_env_vars="DB_USER DB_PASSWORD DB_NAME APP_SECRET_KEY ADMIN_PASSWORD CH_PASSWORD"
 
 print_caption() {
   echo ""
