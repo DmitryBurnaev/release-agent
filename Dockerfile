@@ -29,9 +29,11 @@ WORKDIR /app
 
 COPY --from=requirements-layer /usr/src/requirements.txt .
 
-RUN pip install --timeout "${PIP_DEFAULT_TIMEOUT}" \
+RUN apk add gcc libc-dev --no-cache --virtual .build-dependencies && \
+    pip install --timeout "${PIP_DEFAULT_TIMEOUT}" \
       --no-cache-dir --require-hashes \
-      -r requirements.txt
+      -r requirements.txt && \
+    apk del --no-network .build-dependencies
 
 RUN addgroup -S release-agent -g 1007 && \
     adduser -S -G release-agent -u 1007 -H release-agent
