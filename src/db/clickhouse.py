@@ -46,7 +46,7 @@ class ReleasesAnalyticsSchema(BaseModel):
                 client_is_internal Nullable(Bool),
                 client_ip_address Nullable(String),
                 client_user_agent Nullable(String),
-                client_ref_url Nullable(String)
+                client_ref_url Nullable(String),
                 response_latest_version Nullable(String),
                 response_status UInt16,
                 response_time_ms Nullable(Float32),

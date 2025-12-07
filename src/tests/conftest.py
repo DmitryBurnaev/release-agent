@@ -47,10 +47,7 @@ def mock_clickhouse() -> Generator[None, None, None]:
     """Mock ClickHouse initialization to avoid connection errors in tests"""
     with (
         patch("src.main.initialize_clickhouse"),
-        patch(
-            "src.main.close_clickhouse",
-        ),
-        patch("src.main.create_analytics_table"),
+        patch("src.main.close_clickhouse"),
     ):
         yield
 
