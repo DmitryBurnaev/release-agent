@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Release Agent (some helper system to manage releases)"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-    "fastapi==0.123.0",
+    "fastapi==0.123.8",
     "itsdangerous==2.2.0",         # required by session engine
     "uvicorn==0.38.0",
     "pydantic==2.12.5",
