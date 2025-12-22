@@ -21,8 +21,14 @@ def mock_cached_releases() -> Generator[MagicMock, None, None]:
             [
                 {
                     "version": "2025.12.100",
+                    "notes": "## Nothing here?",
+                    "url": "https://test.example.com/t2",
+                    "published_at": "2025-12-12T12:00:00",
+                },
+                {
+                    "version": "2025.12.99",
                     "notes": "## What's new?",
-                    "url": "https://test.example.com",
+                    "url": "https://test.example.com/t1",
                     "published_at": "2025-12-01T12:00:00",
                 },
             ],
