@@ -53,7 +53,7 @@ async def get_active_releases(
         cached_result = cached_data if cached_data and isinstance(cached_data, dict) else None
 
     def get_latest_version(response_result: PaginatedResponse[ReleasePublicResponse]) -> str | None:
-        return response_result.items[-1].version if response_result.items else None
+        return response_result.items[0].version if response_result.items else None
 
     if cached_result:
         response_result = PaginatedResponse[ReleasePublicResponse].model_validate(cached_result)
