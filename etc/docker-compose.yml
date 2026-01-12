@@ -56,6 +56,12 @@ services:
       CLICKHOUSE_USER: ${CH_USER}
       CLICKHOUSE_PASSWORD: ${CH_PASSWORD}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+      CLICKHOUSE_LOG_LEVEL: information
+    deploy:
+      resources:
+        limits:
+          cpus: "0.8"
+          memory: "1G"
     healthcheck:
       test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
       interval: 5s
@@ -63,5 +69,8 @@ services:
       retries: 5
     volumes:
       - ${PWD}/.data/clickhouse:/var/lib/clickhouse
+      - ${PWD}/.logs/clickhouse-server:/var/log/clickhouse-server
+      - ${PWD}/.logs/clickhouse-keeper:/var/log/clickhouse-keeper
+      - ${PWD}/clickhouse-config.xml:/etc/clickhouse-server/config.d/custom_config.xml
     ports:
       - "127.0.0.1:8123:8123"

@@ -1,0 +1,7 @@
+<clickhouse>
+    <logger>
+        <level from_env="CLICKHOUSE_LOG_LEVEL"/>
+        <size>500M</size>
+        <count>2</count>
+    </logger>
+</clickhouse>
