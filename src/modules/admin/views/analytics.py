@@ -20,13 +20,25 @@ class AnalyticsDashboardAdminView(BaseAPPView):
     @expose("/analytics", methods=["GET"])
     async def get_dashboard(self, request: Request) -> Response:
         settings = get_app_settings()
-        ch_settings = get_clickhouse_settings()
+        ch = get_clickhouse_settings()
         proxy_path = f"{settings.admin.base_url}/analytics-proxy"
-        iframe_link = f"{proxy_path}/play?user={ch_settings.user}#"
+        iframe_link = f"{proxy_path}/play?user={ch.user}#"
+        # TODO: add IGNORE_DOMAINS to the default query (from env var)
+        fields = (
+            "timestamp",
+            "client_version",
+            "client_is_corporate",
+            "client_ip_address",
+            "client_ref_url",
+            "response_latest_version",
+            "response_time_ms",
+            "response_from_cache",
+        )
         default_query = (
-            f"SELECT * FROM {ch_settings.database}.{ch_settings.analytics_table_name} "
+            f"SELECT {','.join(fields)} FROM {ch.database}.{ch.analytics_table_name} "
+            f"WHERE client_is_corporate = true "
             f"ORDER BY timestamp DESC "
-            f"LIMIT 10"
+            f"LIMIT 200"
         )
         return await self.templates.TemplateResponse(
             request,
