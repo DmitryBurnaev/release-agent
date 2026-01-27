@@ -1,3 +1,4 @@
+import os
 import sys
 import logging.config
 from contextlib import asynccontextmanager
@@ -5,6 +6,7 @@ from typing import Any, Callable, AsyncGenerator
 
 import uvicorn
 from fastapi import FastAPI, Depends
+from fastapi.staticfiles import StaticFiles
 
 from src.db.redis import close_redis, initialize_redis
 from src.db.clickhouse import close_clickhouse, initialize_clickhouse
@@ -58,7 +60,7 @@ async def lifespan(app: ReleaseAgentAPP) -> AsyncGenerator[None, None]:
 
     # Initialize ClickHouse for analytics
     try:
-        initialize_clickhouse()
+        await initialize_clickhouse()
     except Exception as exc:
         logger.warning("Failed to initialize ClickHouse connection: %r", exc)
         logger.warning("Analytics will be disabled")
@@ -88,7 +90,7 @@ async def lifespan(app: ReleaseAgentAPP) -> AsyncGenerator[None, None]:
             logger.info("Redis connection shutdown completed successfully")
 
     try:
-        close_clickhouse()
+        await close_clickhouse()
     except Exception as exc:
         logger.error("Error during ClickHouse shutdown: %r", exc)
     else:
@@ -126,6 +128,12 @@ def make_app(settings: AppSettings | None = None) -> ReleaseAgentAPP:
     # Protected routes (authentication required)
     app.include_router(system_router, prefix="/api", dependencies=[Depends(verify_api_token)])
     app.include_router(releases_router, prefix="/api", dependencies=[Depends(verify_api_token)])
+    # Serve static files for /js/* from src/modules/admin/static
+    admin_static_path = os.path.join(os.path.dirname(__file__), "modules", "admin", "static")
+    if not os.path.isdir(admin_static_path):
+        logger.warning(f"Admin static directory does not exist: {admin_static_path}")
+    else:
+        app.mount("/js", StaticFiles(directory=admin_static_path), name="js-static")
 
     logger.info("Application configured!")
     return app

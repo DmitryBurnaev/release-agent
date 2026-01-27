@@ -12,12 +12,115 @@
 <iframe class="analytics-frame" id="analyticFrame" src="{{ iframe_link }}" frameborder="0"></iframe>
 <script type="application/javascript">
     const analyticFrame = document.getElementById('analyticFrame');
+    const chartExample = "SELECT toStartOfInterval(timestamp, INTERVAL {rounding:UInt32} SECOND)::INT AS t, count() AS count FROM releases.release_requests WHERE timestamp >= now() - {seconds:UInt32} GROUP BY t ORDER BY t WITH FILL STEP {rounding:UInt32}"
 
+    // Wait for element to appear in DOM with timeout
+    function waitForElement(iframeDoc, selector, timeout = 10000, interval = 200) {
+        return new Promise((resolve, reject) => {
+            const startTime = Date.now();
+            const checkElement = () => {
+                const element = iframeDoc.querySelector(selector);
+                if (element) {
+                    resolve(element);
+                } else if (Date.now() - startTime >= timeout) {
+                    reject(new Error(`Element ${selector} not found within ${timeout}ms`));
+                } else {
+                    setTimeout(checkElement, interval);
+                }
+            };
+            checkElement();
+        });
+    }
+    const defaultQueries = {
+      "params": {
+        "rounding": "60",
+        "seconds": "86400"
+      },
+      "queries": [
+        {
+          "title": "Queries/second",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(ProfileEvent_Query)\nFROM merge('system', '^metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32}\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "CPU Usage (cores)",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(ProfileEvent_OSCPUVirtualTimeMicroseconds) / 1000000\nFROM merge('system', '^metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32}\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "Queries Running",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(CurrentMetric_Query)\nFROM merge('system', '^metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32}\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "Merges Running",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(CurrentMetric_Merge)\nFROM merge('system', '^metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32}\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "Selected Bytes/second",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(ProfileEvent_SelectedBytes)\nFROM merge('system', '^metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32}\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "IO Wait",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(ProfileEvent_OSIOWaitMicroseconds) / 1000000\nFROM merge('system', '^metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32}\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "CPU Wait",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(ProfileEvent_OSCPUWaitMicroseconds) / 1000000\nFROM merge('system', '^metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32}\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "OS CPU Usage (Userspace)",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(value)\nFROM merge('system', '^asynchronous_metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32} AND metric = 'OSUserTimeNormalized'\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "OS CPU Usage (Kernel)",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(value)\nFROM merge('system', '^asynchronous_metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32} AND metric = 'OSSystemTimeNormalized'\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "Read From Disk",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(ProfileEvent_OSReadBytes)\nFROM merge('system', '^metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32}\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "Read From Filesystem",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(ProfileEvent_OSReadChars)\nFROM merge('system', '^metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32}\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "Memory (tracked)",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(CurrentMetric_MemoryTracking)\nFROM merge('system', '^metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32}\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "In-Memory Caches (bytes)",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, arraySum([COLUMNS('CurrentMetric_.*CacheBytes') EXCEPT 'CurrentMetric_FilesystemCache.*' APPLY avg]) AS metric\nFROM merge('system', '^metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32}\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "Load Average (15 minutes)",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(value)\nFROM merge('system', '^asynchronous_metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32} AND metric = 'LoadAverage15'\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "Selected Rows/second",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(ProfileEvent_SelectedRows)\nFROM merge('system', '^metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32}\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "Inserted Rows/second",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(ProfileEvent_InsertedRows)\nFROM merge('system', '^metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32}\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "Total MergeTree Parts",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, avg(value)\nFROM merge('system', '^asynchronous_metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32} AND metric = 'TotalPartsOfMergeTreeTables'\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "Max Parts For Partition",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t, max(value)\nFROM merge('system', '^asynchronous_metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32} AND metric = 'MaxPartCountForPartition'\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        },
+        {
+          "title": "Concurrent network connections",
+          "query": "SELECT toStartOfInterval(event_time, INTERVAL {rounding:UInt32} SECOND)::INT AS t,\n    max(CurrentMetric_TCPConnection) AS TCP_Connections,\n    max(CurrentMetric_MySQLConnection) AS MySQL_Connections,\n    max(CurrentMetric_HTTPConnection) AS HTTP_Connections,\n    max(CurrentMetric_InterserverConnection) AS Interserver_Connections\nFROM merge('system', '^metric_log')\nWHERE event_date >= toDate(now() - {seconds:UInt32}) AND event_time >= now() - {seconds:UInt32}\nGROUP BY t\nORDER BY t WITH FILL STEP {rounding:UInt32}"
+        }
+      ]
+    }
     analyticFrame.addEventListener('load', () => {
         try {
             const iframeWindow = analyticFrame.contentWindow;
             const iframeDoc = iframeWindow?.document;
             if (!iframeDoc) return;
+
             const inputURL = iframeDoc.getElementById('url');
             if (inputURL) {
                 // Set to the current domain dynamically
@@ -28,6 +131,57 @@
             if (inputQuery) {
                 inputQuery.value = '{{default_query}}';
             }
+            console.log("loaded iframe")
+            // Wait for mass-editor-textarea to appear, then add our query to JSON
+            waitForElement(iframeDoc, '#mass-editor-textarea')
+                .then(() => {
+                    const massEditorTextarea = iframeDoc.getElementById('mass-editor-textarea');
+                    if (massEditorTextarea) {
+                        try {
+                            // Parse existing JSON or create new structure
+                            let config = defaultQueries;
+                            const currentValue = massEditorTextarea.value.trim();
+                            if (currentValue) {
+                                config = JSON.parse(currentValue);
+                            }
+
+                            // Preserve existing params or create empty object
+                            if (!config.params || typeof config.params !== 'object') {
+                                config.params = {};
+                            }
+
+                            // Preserve existing structure, ensure queries array exists
+                            if (!config.queries || !Array.isArray(config.queries)) {
+                                config.queries = [];
+                            }
+
+                            // Add our query to the beginning of queries array (preserving existing ones)
+                            const newQuery = {
+                                title: "Запросы релизов за последние 24 часа",
+                                query: chartExample
+                            };
+                            config.queries.unshift(newQuery);
+
+                            // Update textarea with new JSON
+                            massEditorTextarea.value = JSON.stringify(config, null, 2);
+                            // Trigger input event to notify form about value change
+                            massEditorTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+                            massEditorTextarea.dispatchEvent(new Event('change', { bubbles: true }));
+
+                            // Find and click the submit button
+                            const submitButton = iframeDoc.getElementById('mass-editor-confirm');
+                            if (submitButton) {
+                                submitButton.click();
+                            }
+                        } catch (err) {
+                            console.error("[Admin][Analytics] Failed to parse or update JSON:", err);
+                        }
+                    }
+                })
+                .catch((err) => {
+                    console.warn("[Admin][Analytics] Mass editor textarea not found:", err);
+                });
+
         } catch (err) {
             console.error("[Admin][Analytics] Failed to access iframe content or set input value:", err);
         }

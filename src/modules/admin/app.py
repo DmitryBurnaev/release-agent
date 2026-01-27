@@ -21,7 +21,12 @@ from src.modules.admin.views import (
     TokenAdminView,
     ReleaseAdminView,
 )
-from src.modules.admin.views.analytics import AnalyticsDashboardAdminView
+from src.modules.admin.views.analytics import (
+    AnalyticsDashboardAdminView,
+    AnalyticsDashboardCHAdminView,
+    AnalyticsQueryAdminView,
+    APIAnalyticsDashboardAdminView,
+)
 from src.services.counters import AdminCounter
 from src.settings import get_app_settings
 from src.settings.db import get_clickhouse_settings
@@ -34,7 +39,10 @@ ADMIN_VIEWS: tuple[type[BaseView], ...] = (
     UserAdminView,
     TokenAdminView,
     ReleaseAdminView,
+    AnalyticsQueryAdminView,
     AnalyticsDashboardAdminView,
+    AnalyticsDashboardCHAdminView,
+    APIAnalyticsDashboardAdminView,
 )
 
 logger = logging.getLogger(__name__)

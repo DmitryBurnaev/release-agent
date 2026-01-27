@@ -1,8 +1,8 @@
 from datetime import datetime
 import logging
 
-from clickhouse_connect.driver.client import Client as ClickhouseClient
 import clickhouse_connect.driver
+from clickhouse_connect.driver.asyncclient import AsyncClient as ClickhouseAsyncClient
 from pydantic import BaseModel, Field
 
 from src.utils import singleton
@@ -66,9 +66,9 @@ class AsyncClickHouseConnectors:
 
     def __init__(self, settings: ClickHouseSettings) -> None:
         self._clickhouse_settings: ClickHouseSettings = settings
-        self._client: ClickhouseClient | None = None
+        self._async_client: ClickhouseAsyncClient | None = None
 
-    def init_connection(self) -> None:
+    async def init_connection(self) -> None:
         """
         Initialize the ClickHouse connection
 
@@ -79,9 +79,9 @@ class AsyncClickHouseConnectors:
             "[CH] Initializing connection to %s...",
             self._clickhouse_settings.info,
         )
-        if self._client is None:
+        if self._async_client is None:
             try:
-                self._client = clickhouse_connect.get_client(
+                self._async_client = await clickhouse_connect.get_async_client(
                     host=self._clickhouse_settings.host,
                     port=self._clickhouse_settings.port,
                     username=self._clickhouse_settings.user,
@@ -94,20 +94,20 @@ class AsyncClickHouseConnectors:
                 logger.error("[CH] Failed to create client: %r", e)
                 raise RuntimeError(f"ClickHouse: Failed to create client: {e}") from e
 
-        self._ping_connection()
-        self._create_analytics_table()
+        await self._ping_connection()
+        await self._create_analytics_table()
         logger.info("[CH] ClickHouse connection initialized successfully")
 
-    def close_connection(self) -> None:
+    async def close_connection(self) -> None:
         """Close the ClickHouse connection"""
-        if self._client is None:
+        if self._async_client is None:
             logger.warning(
                 "[CH] Connection is not initialized, cannot close connection",
             )
             return
 
         try:
-            self._client.close()  # type: ignore
+            await self._async_client.close()  # type: ignore
         except Exception as e:
             logger.error("[CH] Error during connection close: %r", e)
         else:
@@ -116,22 +116,22 @@ class AsyncClickHouseConnectors:
                 self._clickhouse_settings.info,
             )
         finally:
-            self._client = None
+            self._async_client = None
 
     @property
-    def client(self) -> ClickhouseClient:
+    def client(self) -> ClickhouseAsyncClient:
         """Get the ClickHouse client instance from current context"""
-        if self._client is None:
+        if self._async_client is None:
             logger.warning("[CH] Client is not initialized!")
             raise RuntimeError(
                 "Client is not initialized. Make sure lifespan is properly set up.",
             )
 
-        return self._client
+        return self._async_client
 
-    def _ping_connection(self) -> None:
+    async def _ping_connection(self) -> None:
         """Ping the ClickHouse connection"""
-        if self._client is None:
+        if self._async_client is None:
             raise RuntimeError("ClickHouse connection is not initialized")
 
         connection_info = self._clickhouse_settings.info
@@ -139,7 +139,7 @@ class AsyncClickHouseConnectors:
         logger.info("[CH] Pinging connection to %s...", connection_info)
 
         try:
-            result = self._client.command("SELECT 1")
+            result = await self._async_client.command("SELECT 1")
             if result != 1:
                 raise RuntimeError("Unable to ping ClickHouse server")
         except Exception as e:
@@ -148,7 +148,7 @@ class AsyncClickHouseConnectors:
 
         logger.info("[CH] Connection to %s is healthy", connection_info)
 
-    def _create_analytics_table(self) -> None:
+    async def _create_analytics_table(self) -> None:
         """
         Create analytics table in ClickHouse if it doesn't exist
 
@@ -159,11 +159,9 @@ class AsyncClickHouseConnectors:
         table_name: str = self._clickhouse_settings.analytics_table_name
         try:
             create_table_query = ReleasesAnalyticsSchema.create_table_query(table_name)
-            self.client.command(create_table_query)
-            logger.debug(
-                "[CH] Table %s created or already exists",
-                table_name,
-            )
+            await self.client.command(create_table_query)
+            logger.debug("[CH] Table %s created or already exists", table_name)
+
         except Exception as e:
             logger.error("[CH] Failed to create table: %r", e)
             raise
@@ -172,16 +170,16 @@ class AsyncClickHouseConnectors:
 _clickhouse_connectors = AsyncClickHouseConnectors(get_clickhouse_settings())
 
 
-def initialize_clickhouse() -> None:
+async def initialize_clickhouse() -> None:
     """Initialize the ClickHouse connection"""
-    _clickhouse_connectors.init_connection()
+    await _clickhouse_connectors.init_connection()
 
 
-def close_clickhouse() -> None:
+async def close_clickhouse() -> None:
     """Close the ClickHouse connection"""
-    _clickhouse_connectors.close_connection()
+    await _clickhouse_connectors.close_connection()
 
 
-def get_clickhouse_client() -> ClickhouseClient:
+async def get_clickhouse_client() -> ClickhouseAsyncClient:
     """Get the ClickHouse client instance from current context"""
     return _clickhouse_connectors.client
