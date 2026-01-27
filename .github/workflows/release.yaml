@@ -18,7 +18,7 @@ jobs:
       image_tag: ${{ steps.names.outputs.image_tag }}
       image_name_base: ${{ steps.names.outputs.image_name_base }}
       image_name_full: ${{ steps.names.outputs.image_name_full }}
-#      image_name_latest: ${{ steps.names.outputs.image_name_latest }}
+      image_name_latest: ${{ steps.names.outputs.image_name_latest }}
 
     steps:
       - name: Prepare names
@@ -39,7 +39,7 @@ jobs:
           echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
           echo "image_name_base=${IMAGE_NAME_BASE}" >> $GITHUB_OUTPUT
           echo "image_name_full=${IMAGE_NAME_BASE}:${IMAGE_TAG}" >> $GITHUB_OUTPUT
-#          echo "image_name_latest=${IMAGE_NAME_BASE}:latest" >> $GITHUB_OUTPUT
+          echo "image_name_latest=${IMAGE_NAME_BASE}:latest" >> $GITHUB_OUTPUT
           echo "==="
           echo "${IMAGE_NAME_BASE}"
           echo "${IMAGE_NAME_BASE}:${IMAGE_TAG}"
@@ -99,7 +99,6 @@ jobs:
         with:
           images: ${{ needs.prepare.outputs.image_name_base }}
           tags: |
-#            type=raw,value=latest
             type=raw,value=${{ needs.prepare.outputs.image_tag }}
 
       - name: Debug metadata
@@ -136,11 +135,6 @@ jobs:
           echo "Checking if image exists: ${DOCKER_IMAGE}"
           docker manifest inspect "${DOCKER_IMAGE}" || exit 1
           echo "✓ Image ${DOCKER_IMAGE} successfully verified in registry"
-
-#          DOCKER_IMAGE_LATEST="${{ needs.prepare.outputs.image_name_latest }}"
-#          echo "Checking if image exists: ${DOCKER_IMAGE_LATEST}"
-#          docker manifest inspect "${DOCKER_IMAGE_LATEST}" || exit 1
-#          echo "✓ Image ${DOCKER_IMAGE_LATEST} successfully verified in registry"
 
 
   create-release:
