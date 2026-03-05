@@ -1,19 +1,19 @@
 {# TOAST UI Editor macros for release forms #}
 
 {% macro editor_head() %}
-<!-- TOAST UI Editor CSS -->
-<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+<!-- TOAST UI Editor CSS (local) -->
+<link rel="stylesheet" href="/css/toastui-editor.min.css" />
 {% endmacro %}
 
 {% macro viewer_head() %}
-<!-- TOAST UI Editor Viewer CSS -->
-<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
-<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor-viewer.min.css" />
+<!-- TOAST UI Editor Viewer CSS (local) -->
+<link rel="stylesheet" href="/css/toastui-editor.min.css" />
+<link rel="stylesheet" href="/css/toastui-editor-viewer.min.css" />
 {% endmacro %}
 
 {% macro editor_script(default_value='## Что нового в этом релизе?') %}
-<!-- TOAST UI Editor JS -->
-<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+<!-- TOAST UI Editor JS (local) -->
+<script src="/js/toastui-editor-all.min.js"></script>
 <script type="text/javascript">
     document.addEventListener('DOMContentLoaded', function () {
         const notesInput = document.querySelector('input[name="notes"]');
@@ -67,8 +67,8 @@
 {% endmacro %}
 
 {% macro viewer_script() %}
-<!-- TOAST UI Editor JS (includes Viewer) -->
-<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+<!-- TOAST UI Editor JS (includes Viewer, local) -->
+<script src="/js/toastui-editor-all.min.js"></script>
 <script type="text/javascript">
     document.addEventListener('DOMContentLoaded', function () {
         console.log('[Release Editor] Starting viewer initialization...');
