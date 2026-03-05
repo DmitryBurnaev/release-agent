@@ -76,6 +76,10 @@ class ClickHouseSettings(BaseSettings):
     secure: bool = False
     timeout: int = 10
     analytics_table_name: str = "release_requests"
+    ignore_domain: str = Field(
+        default="domain.com",
+        description="Domain to exclude from analytics queries (e.g. internal domain)",
+    )
 
     @cached_property
     def info(self) -> str:
