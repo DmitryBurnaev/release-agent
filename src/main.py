@@ -128,12 +128,13 @@ def make_app(settings: AppSettings | None = None) -> ReleaseAgentAPP:
     # Protected routes (authentication required)
     app.include_router(system_router, prefix="/api", dependencies=[Depends(verify_api_token)])
     app.include_router(releases_router, prefix="/api", dependencies=[Depends(verify_api_token)])
-    # Serve static files for /js/* from src/modules/admin/static
+    # Serve static files for /js/* and /css/* from src/modules/admin/static
     admin_static_path = os.path.join(os.path.dirname(__file__), "modules", "admin", "static")
     if not os.path.isdir(admin_static_path):
         logger.warning(f"Admin static directory does not exist: {admin_static_path}")
     else:
         app.mount("/js", StaticFiles(directory=admin_static_path), name="js-static")
+        app.mount("/css", StaticFiles(directory=admin_static_path), name="css-static")
 
     logger.info("Application configured!")
     return app
