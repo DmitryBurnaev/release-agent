@@ -162,6 +162,12 @@
                             };
                             config.queries.unshift(newQuery);
 
+                            // Inject server-side stat queries (unique installations, etc.)
+                            const statQueries = {{ stat_queries | default('[]') | safe }};
+                            statQueries.reverse().forEach(
+                                sq => config.queries.unshift(sq)
+                            );
+
                             // Update textarea with new JSON
                             massEditorTextarea.value = JSON.stringify(config, null, 2);
                             // Trigger input event to notify form about value change

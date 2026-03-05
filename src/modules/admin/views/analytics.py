@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any
 
@@ -5,6 +6,7 @@ from sqladmin import expose
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from src.modules.admin.constants import UNIQUE_INSTALLATIONS_QUERY, UNIQUE_INSTALLATIONS_COUNT_QUERY
 from src.modules.admin.views.base import BaseAPPView
 from src.services.analytics import AnalyticsService
 from src.services.proxy import proxy
@@ -60,23 +62,22 @@ class AnalyticsQueryAdminView(BaseAPPView):
         """Proxy request to ClickHouse UI"""
         settings = get_app_settings()
         ch = get_clickhouse_settings()
-        fields = (
-            "timestamp",
-            "client_version",
-            "client_is_corporate",
-            "client_ip_address",
-            "client_ref_url",
-            "response_latest_version",
-            "response_time_ms",
-            "response_from_cache",
-        )
-        default_query = (
-            f"SELECT {','.join(fields)} FROM {ch.database}.{ch.analytics_table_name} "
-            f"WHERE client_is_corporate = true "
-            f"ORDER BY timestamp DESC "
-            f"LIMIT 200"
-        )
-        print(default_query)
+        # fields = (
+        #     "timestamp",
+        #     "client_version",
+        #     "client_is_corporate",
+        #     "client_ip_address",
+        #     "client_ref_url",
+        #     "response_latest_version",
+        #     "response_time_ms",
+        #     "response_from_cache",
+        # )
+        # default_query = (
+        #     f"SELECT {','.join(fields)} FROM {ch.database}.{ch.analytics_table_name} "
+        #     f"WHERE client_is_corporate = true "
+        #     f"ORDER BY timestamp DESC "
+        #     f"LIMIT 200"
+        # )
         return await proxy(
             request,
             proxy_path=f"{settings.admin.base_url}/analytics-proxy",
@@ -138,7 +139,6 @@ class AnalyticsDashboardCHAdminView(BaseAPPView):
         ch = get_clickhouse_settings()
         proxy_path = f"{settings.admin.base_url}/analytics-proxy"
         iframe_link = f"{proxy_path}/dashboard?user={ch.user}#"
-        # TODO: add IGNORE_DOMAINS to the default query (from env var)
         fields = (
             "timestamp",
             "client_version",
@@ -155,6 +155,16 @@ class AnalyticsDashboardCHAdminView(BaseAPPView):
             f"ORDER BY timestamp DESC "
             f"LIMIT 200"
         )
+        stat_queries = [
+            {
+                "title": "Unique Installations",
+                "query": UNIQUE_INSTALLATIONS_QUERY.format(ignore_domain=ch.ignore_domain),
+            },
+            {
+                "title": "Unique Installations Count",
+                "query": UNIQUE_INSTALLATIONS_COUNT_QUERY.format(ignore_domain=ch.ignore_domain),
+            },
+        ]
         return await self.templates.TemplateResponse(
             request,
             name="analytics.html",
@@ -162,6 +172,7 @@ class AnalyticsDashboardCHAdminView(BaseAPPView):
                 "iframe_link": iframe_link,
                 "default_query": default_query,
                 "proxy_path": proxy_path,
+                "stat_queries": json.dumps(stat_queries),
             },
         )
 
