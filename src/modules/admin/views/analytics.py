@@ -6,7 +6,7 @@ from sqladmin import expose
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from src.modules.admin.constants import UNIQUE_INSTALLATIONS_QUERY, UNIQUE_INSTALLATIONS_COUNT_QUERY
+from src.modules.admin.constants import UNIQUE_INSTALLATIONS_QUERY, UNIQUE_CLIENTS_QUERY
 from src.modules.admin.views.base import BaseAPPView
 from src.services.analytics import AnalyticsService
 from src.services.proxy import proxy
@@ -161,8 +161,8 @@ class AnalyticsDashboardCHAdminView(BaseAPPView):
                 "query": UNIQUE_INSTALLATIONS_QUERY.format(ignore_domain=ch.ignore_domain),
             },
             {
-                "title": "Unique Installations Count",
-                "query": UNIQUE_INSTALLATIONS_COUNT_QUERY.format(ignore_domain=ch.ignore_domain),
+                "title": "Unique Clients",
+                "query": UNIQUE_CLIENTS_QUERY.format(ignore_domain=ch.ignore_domain),
             },
         ]
         return await self.templates.TemplateResponse(

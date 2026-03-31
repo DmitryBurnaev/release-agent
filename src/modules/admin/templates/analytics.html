@@ -156,17 +156,19 @@
                             }
 
                             // Add our query to the beginning of queries array (preserving existing ones)
-                            const newQuery = {
-                                title: "Запросы релизов за последние 24 часа",
-                                query: chartExample
-                            };
-                            config.queries.unshift(newQuery);
+
+                            //const newQuery = {
+                            //    title: "Запросы релизов за последние 24 часа",
+                            //   query: chartExample
+                            //};
+                            //config.queries.unshift(newQuery);
 
                             // Inject server-side stat queries (unique installations, etc.)
-                            const statQueries = {{ stat_queries | default('[]') | safe }};
-                            statQueries.reverse().forEach(
-                                sq => config.queries.unshift(sq)
-                            );
+                            // const statQueries = {{ stat_queries | default('[]') | safe }};
+                            config.queries = {{ stat_queries | default('[]') | safe }};
+                            {#statQueries.reverse().forEach(#}
+                            {#    sq => config.queries.unshift(sq)#}
+                            {#);#}
 
                             // Update textarea with new JSON
                             massEditorTextarea.value = JSON.stringify(config, null, 2);
