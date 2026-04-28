@@ -17,6 +17,9 @@ from src.db import (
     UserRepository,
     User,
 )
+from src.db.clickhouse import initialize_clickhouse, close_clickhouse
+from src.services.analytics_seed import seed_release_request_analytics
+from src.settings.db import get_clickhouse_settings
 
 DEFAULT_ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "admin")
 MIN_PASSWORD_LENGTH: int = int(os.getenv("MIN_PASSWORD_LENGTH", "16"))
@@ -51,6 +54,26 @@ async def update_user(username: str, new_password: str) -> bool:
             click.echo(f"User {username} not found.")
 
     return success
+
+
+async def seed_analytics(rows: int, days_range: int, random_seed: int | None) -> int:
+    """Open ClickHouse, insert generated analytics rows, and close the connection."""
+    await initialize_clickhouse()
+    try:
+        return await seed_release_request_analytics(
+            get_clickhouse_settings(),
+            rows=rows,
+            days_range=days_range,
+            random_seed=random_seed,
+        )
+    finally:
+        await close_clickhouse()
+
+
+@click.group("management")
+@click.help_option("--help", help="Show this help message")
+def cli() -> None:
+    """Application management commands."""
 
 
 @click.command("change-admin-password", help="Change the admin password.")
@@ -99,5 +122,37 @@ def change_admin_password(
         click.echo(f"Password for user '{username}' wasn't updated.")
 
 
+@click.command("seed-analytics", help="Fill ClickHouse release request analytics with fake data.")
+@click.help_option("--help", help="Show this help message")
+@click.option("--rows", default=500, show_default=True, type=click.IntRange(min=0))
+@click.option(
+    "--days-range",
+    default=30,
+    show_default=True,
+    type=click.IntRange(min=1),
+    help="Generate timestamps in range from now minus N days to now plus N days.",
+)
+@click.option(
+    "--random-seed",
+    default=None,
+    type=int,
+    help="Use deterministic random seed for repeatable generated data.",
+)
+def seed_analytics_command(
+    rows: int,
+    days_range: int,
+    random_seed: int | None,
+) -> None:
+    """Fill release request analytics with synthetic rows from an explicit CLI call."""
+    click.echo("===")
+    click.echo("Seeding ClickHouse release request analytics...")
+    inserted = asyncio.run(seed_analytics(rows, days_range, random_seed))
+    click.echo(f"Inserted analytics rows: {inserted}")
+
+
+cli.add_command(change_admin_password)
+cli.add_command(seed_analytics_command)
+
+
 if __name__ == "__main__":
-    change_admin_password()
+    cli()
