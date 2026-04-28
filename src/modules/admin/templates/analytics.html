@@ -12,9 +12,8 @@
 <iframe class="analytics-frame" id="analyticFrame" src="{{ iframe_link }}" frameborder="0"></iframe>
 <script type="application/javascript">
     const analyticFrame = document.getElementById('analyticFrame');
-    const chartExample = "SELECT toStartOfInterval(timestamp, INTERVAL {rounding:UInt32} SECOND)::INT AS t, count() AS count FROM releases.release_requests WHERE timestamp >= now() - {seconds:UInt32} GROUP BY t ORDER BY t WITH FILL STEP {rounding:UInt32}"
+    const statQueries = {{ stat_queries | default([]) | tojson }};
 
-    // Wait for element to appear in DOM with timeout
     function waitForElement(iframeDoc, selector, timeout = 10000, interval = 200) {
         return new Promise((resolve, reject) => {
             const startTime = Date.now();
@@ -123,60 +122,39 @@
 
             const inputURL = iframeDoc.getElementById('url');
             if (inputURL) {
-                // Set to the current domain dynamically
-                inputURL.value = window.location.origin + '{{proxy_path}}';
+                inputURL.value = window.location.origin + {{ proxy_path | tojson }};
             }
 
             const inputQuery = iframeDoc.getElementById('query');
             if (inputQuery) {
-                inputQuery.value = '{{default_query}}';
+                inputQuery.value = {{ default_query | tojson }};
             }
-            console.log("loaded iframe")
-            // Wait for mass-editor-textarea to appear, then add our query to JSON
+
             waitForElement(iframeDoc, '#mass-editor-textarea')
                 .then(() => {
                     const massEditorTextarea = iframeDoc.getElementById('mass-editor-textarea');
                     if (massEditorTextarea) {
                         try {
-                            // Parse existing JSON or create new structure
                             let config = defaultQueries;
                             const currentValue = massEditorTextarea.value.trim();
                             if (currentValue) {
                                 config = JSON.parse(currentValue);
                             }
 
-                            // Preserve existing params or create empty object
                             if (!config.params || typeof config.params !== 'object') {
                                 config.params = {};
                             }
 
-                            // Preserve existing structure, ensure queries array exists
                             if (!config.queries || !Array.isArray(config.queries)) {
                                 config.queries = [];
                             }
 
-                            // Add our query to the beginning of queries array (preserving existing ones)
+                            config.queries = statQueries;
 
-                            //const newQuery = {
-                            //    title: "Запросы релизов за последние 24 часа",
-                            //   query: chartExample
-                            //};
-                            //config.queries.unshift(newQuery);
-
-                            // Inject server-side stat queries (unique installations, etc.)
-                            // const statQueries = {{ stat_queries | default('[]') | safe }};
-                            config.queries = {{ stat_queries | default('[]') | safe }};
-                            {#statQueries.reverse().forEach(#}
-                            {#    sq => config.queries.unshift(sq)#}
-                            {#);#}
-
-                            // Update textarea with new JSON
                             massEditorTextarea.value = JSON.stringify(config, null, 2);
-                            // Trigger input event to notify form about value change
                             massEditorTextarea.dispatchEvent(new Event('input', { bubbles: true }));
                             massEditorTextarea.dispatchEvent(new Event('change', { bubbles: true }));
 
-                            // Find and click the submit button
                             const submitButton = iframeDoc.getElementById('mass-editor-confirm');
                             if (submitButton) {
                                 submitButton.click();
