@@ -146,3 +146,12 @@ async def test_chart_api_normalizes_request_parameters(
 
     service.get_requests_over_time.assert_awaited_once_with(24, "hour")
     service.get_top_ips.assert_awaited_once_with(100)
+
+
+def test_chart_api_view_is_hidden_from_admin_menu(
+    analytics_settings: None,
+    mock_request: MagicMock,
+) -> None:
+    view = APIAnalyticsDashboardAdminView()
+
+    assert view.is_visible(mock_request) is False

@@ -152,6 +152,9 @@ class APIAnalyticsDashboardAdminView(BaseAPPView):
         ch_settings = get_clickhouse_settings()
         self._analytics_service = AnalyticsService(ch_settings)
 
+    def is_visible(self, request: Request) -> bool:
+        return False
+
     @expose("/api/charts/requests-over-time", methods=["GET"])
     async def get_requests_over_time(self, request: Request) -> JSONResponse:
         """Get requests count over time for time series chart"""
