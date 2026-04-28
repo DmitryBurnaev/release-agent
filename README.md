@@ -80,7 +80,7 @@ For detailed server installation instructions, see [INSTALL.md](INSTALL.md).
 
 2. User management (change password)
    ```bash
-   # Usage: python -m src.modules.cli.management [OPTIONS]
+   # Usage: python -m src.modules.cli.management change-admin-password [OPTIONS]
    # Change the admin password.   
    # Options:
    #   --help                           Show this help message
@@ -89,15 +89,29 @@ For detailed server installation instructions, see [INSTALL.md](INSTALL.md).
    #   --random-password-length INTEGER Set length of generated random password.
 
    # Example: change password for admin to auto-generated password with length 32 symbols
-   uv run python -m src.modules.cli.management --username admin --random-password --random-password-length 32
+   uv run python -m src.modules.cli.management change-admin-password --username admin --random-password --random-password-length 32
 
    # Example: change password for my-user to password from stdin
-   uv run python -m src.modules.cli.management --username my-user
+   uv run python -m src.modules.cli.management change-admin-password --username my-user
    # ===
    # Changing admin password...
    # Set a new password for my-user
    # New Password: <INPUT>
    # Repeat for confirmation: <INPUT>
+   ```
+
+3. Analytics test data
+   ```bash
+   # Fill ClickHouse release request analytics with fake data.
+   # Requires configured CH_* settings and an available ClickHouse instance.
+   make seed-analytics
+
+   # Optional overrides:
+   make seed-analytics ANALYTICS_SEED_ROWS=1000 ANALYTICS_SEED_DAYS_RANGE=30
+   make seed-analytics ANALYTICS_SEED_ROWS=1000 ANALYTICS_SEED_RANDOM_SEED=42
+
+   # Direct Click command:
+   uv run python -m src.modules.cli.management seed-analytics --rows 1000 --days-range 30
    ```
 
 

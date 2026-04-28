@@ -7,6 +7,7 @@ from _pytest.capture import CaptureFixture
 
 from src.db import User
 from src.modules.cli.management import (
+    cli,
     update_user,
     change_admin_password,
     MIN_PASSWORD_LENGTH,
@@ -216,6 +217,48 @@ class TestChangeAdminPassword:
         assert "--username" in result.output
         assert "--random-password" in result.output
         assert "--random-password-length" in result.output
+
+
+class TestSeedAnalytics:
+    """Test analytics seed click command."""
+
+    def test_seed_analytics_command(
+        self,
+        cli_runner: CliRunnerTypeHinted,
+    ) -> None:
+        ch_settings = MagicMock()
+        with (
+            patch("src.modules.cli.management.initialize_clickhouse") as mock_init_ch,
+            patch("src.modules.cli.management.close_clickhouse") as mock_close_ch,
+            patch("src.modules.cli.management.get_clickhouse_settings", return_value=ch_settings),
+            patch("src.modules.cli.management.seed_release_request_analytics") as mock_seed,
+        ):
+            mock_seed.return_value = 7
+
+            result = cli_runner.invoke(
+                cli,
+                [
+                    "seed-analytics",
+                    "--rows",
+                    "7",
+                    "--days-range",
+                    "14",
+                    "--random-seed",
+                    "42",
+                ],
+            )
+
+        assert result.exit_code == 0
+        assert "Seeding ClickHouse release request analytics" in result.output
+        assert "Inserted analytics rows: 7" in result.output
+        mock_init_ch.assert_awaited_once()
+        mock_seed.assert_awaited_once_with(
+            ch_settings,
+            rows=7,
+            days_range=14,
+            random_seed=42,
+        )
+        mock_close_ch.assert_awaited_once()
 
 
 class TestErrorHandling:

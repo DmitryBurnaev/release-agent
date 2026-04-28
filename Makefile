@@ -3,6 +3,9 @@
 MAKEFILE_TARGET := $(filter-out --help Makefile,$(MAKECMDGOALS))
 -include .env
 
+ANALYTICS_SEED_ROWS ?= 500
+ANALYTICS_SEED_DAYS_RANGE ?= 30
+
 .PHONY: help
 help: ## This help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*? / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -77,3 +80,8 @@ downgrade: .env ## Downgrade (unapply) DB migration (last revision)
 secrets: .env ## Create new secrets
 	@echo Encryption: creating new key
 	uv run python -m src.modules.cli.generate_secrets
+
+.PHONY: seed-analytics
+seed-analytics: .env ## Fill ClickHouse analytics table with fake release requests
+	@echo Analytics: seeding ClickHouse release request data...
+	uv run python -m src.modules.cli.management seed-analytics --rows "$(ANALYTICS_SEED_ROWS)" --days-range "$(ANALYTICS_SEED_DAYS_RANGE)" $(if $(ANALYTICS_SEED_RANDOM_SEED),--random-seed "$(ANALYTICS_SEED_RANDOM_SEED)",)
