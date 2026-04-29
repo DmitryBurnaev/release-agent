@@ -1,11 +1,27 @@
 from typing import Generator, Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from starlette.testclient import TestClient
 from starlette.background import BackgroundTasks
 
 from src.db.clickhouse import ReleasesAnalyticsSchema
+
+
+def make_latest_cache_payload(version: str = "2026.3.4") -> dict[str, Any]:
+    return {
+        "items": [
+            {
+                "version": version,
+                "notes": "## Latest",
+                "url": None,
+                "published_at": "2026-03-04T12:00:00",
+            }
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 1,
+    }
 
 
 @pytest.fixture(autouse=True)
@@ -35,6 +51,16 @@ def mock_cached_releases() -> Generator[MagicMock, None, None]:
             1,
         )
         yield mock_cache
+
+
+@pytest.fixture
+def mock_release_cache() -> Generator[MagicMock, None, None]:
+    with patch("src.modules.api.public.get_cache") as mock_get_cache:
+        cache = MagicMock()
+        cache.get = AsyncMock(return_value=None)
+        cache.set = AsyncMock()
+        mock_get_cache.return_value = cache
+        yield cache
 
 
 class TestPublicReleasesAPI:
@@ -141,3 +167,151 @@ class TestPublicReleasesAPI:
         assert request.client_version is None
         assert request.client_install_id is None
         assert request.client_is_corporate is None
+
+    def test_get_latest_version_json_by_default(
+        self,
+        mock_release_cache: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Test latest version endpoint returns JSON by default"""
+        mock_release_cache.get.return_value = make_latest_cache_payload("2026.3.4")
+
+        response = client.get("/public/releases/latest")
+
+        assert response.status_code == 200
+        assert response.json() == {"version": "2026.3.4"}
+        assert response.headers["content-type"] == "application/json"
+
+    def test_get_latest_version_plain(
+        self,
+        mock_release_cache: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Test latest version endpoint can return a plain text response"""
+        mock_release_cache.get.return_value = make_latest_cache_payload("2026.3.4")
+
+        response = client.get("/public/releases/latest?format=plain")
+
+        assert response.status_code == 200
+        assert response.text == "2026.3.4"
+        assert response.headers["content-type"].startswith("text/plain")
+
+    def test_get_latest_version_format_is_case_insensitive(
+        self,
+        mock_release_cache: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Test latest version endpoint accepts uppercase format values"""
+        mock_release_cache.get.return_value = make_latest_cache_payload("2026.3.4")
+
+        response = client.get("/public/releases/latest?format=JSON")
+
+        assert response.status_code == 200
+        assert response.json() == {"version": "2026.3.4"}
+
+    def test_get_latest_version_uses_page_one_cache(
+        self,
+        mock_release_cache: MagicMock,
+        mock_cached_releases: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Test latest version endpoint reads the active releases page cache first"""
+        mock_release_cache.get.return_value = make_latest_cache_payload("2026.3.4")
+
+        response = client.get("/public/releases/latest")
+
+        assert response.status_code == 200
+        mock_release_cache.get.assert_awaited_once_with("active_releases_page_0_1")
+        mock_release_cache.set.assert_not_awaited()
+        mock_cached_releases.assert_not_awaited()
+
+    def test_get_latest_version_falls_back_to_database_on_cache_miss(
+        self,
+        mock_release_cache: MagicMock,
+        mock_cached_releases: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Test latest version endpoint queries DB and caches the page on cache miss"""
+        mock_release_cache.get.return_value = None
+
+        response = client.get("/public/releases/latest")
+
+        assert response.status_code == 200
+        assert response.json() == {"version": "2025.12.100"}
+        mock_cached_releases.assert_awaited_once_with(offset=0, limit=1)
+        mock_release_cache.set.assert_awaited_once()
+        cache_key, cache_payload = mock_release_cache.set.await_args.args
+        assert cache_key == "active_releases_page_0_1"
+        assert cache_payload["items"][0]["version"] == "2025.12.100"
+        assert cache_payload["offset"] == 0
+        assert cache_payload["limit"] == 1
+
+    def test_get_latest_version_falls_back_to_database_on_invalid_cache(
+        self,
+        mock_release_cache: MagicMock,
+        mock_cached_releases: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Test latest version endpoint ignores invalid cached payloads"""
+        mock_release_cache.get.return_value = {"items": "invalid"}
+
+        response = client.get("/public/releases/latest")
+
+        assert response.status_code == 200
+        assert response.json() == {"version": "2025.12.100"}
+        mock_cached_releases.assert_awaited_once_with(offset=0, limit=1)
+        mock_release_cache.set.assert_awaited_once()
+
+    def test_get_latest_version_does_not_log_analytics(
+        self,
+        mock_log_analytics: MagicMock,
+        mock_release_cache: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Test latest version endpoint does not log ClickHouse analytics"""
+        mock_release_cache.get.return_value = make_latest_cache_payload("2026.3.4")
+
+        response = client.get("/public/releases/latest")
+
+        assert response.status_code == 200
+        mock_log_analytics.assert_not_called()
+
+    def test_get_latest_version_returns_404_without_active_releases(
+        self,
+        mock_release_cache: MagicMock,
+        mock_cached_releases: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Test latest version endpoint returns 404 when there are no active releases"""
+        mock_release_cache.get.return_value = None
+        mock_cached_releases.return_value = ([], 0)
+
+        response = client.get("/public/releases/latest")
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "No active release found"
+
+    def test_get_latest_version_rejects_invalid_format(self, client: TestClient) -> None:
+        """Test latest version endpoint rejects unsupported response formats"""
+        response = client.get("/public/releases/latest?format=xml")
+
+        assert response.status_code == 422
+
+    def test_latest_version_format_is_openapi_enum(self, client: TestClient) -> None:
+        """Test latest version response format is documented as an enum"""
+        response = client.get("/openapi.json")
+
+        assert response.status_code == 200
+        schema = response.json()
+        parameters = schema["paths"]["/public/releases/latest"]["get"]["parameters"]
+        format_parameter = next(param for param in parameters if param["name"] == "format")
+        format_schema = format_parameter["schema"]
+
+        if "$ref" in format_schema:
+            enum_schema = schema["components"]["schemas"][format_schema["$ref"].rsplit("/", 1)[1]]
+        else:
+            enum_reference = format_schema["allOf"][0]["$ref"]
+            enum_schema = schema["components"]["schemas"][enum_reference.rsplit("/", 1)[1]]
+
+        assert enum_schema["type"] == "string"
+        assert set(enum_schema["enum"]) == {"json", "plain"}
