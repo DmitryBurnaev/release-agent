@@ -10,6 +10,7 @@ __all__ = (
     "ReleaseResponse",
     "ReleaseDetailsResponse",
     "ReleasePublicResponse",
+    "LatestVersionResponse",
     "ReleaseCreate",
     "ReleaseUpdate",
     "PaginatedResponse",
@@ -39,6 +40,12 @@ class ReleasePublicResponse(BaseModel):
     notes: str
     url: str | None
     published_at: datetime
+
+
+class LatestVersionResponse(BaseModel):
+    """Latest release version response model for API"""
+
+    version: str
 
 
 class ReleaseBaseResponse(BaseModel):
