@@ -1,6 +1,6 @@
 import logging
 
-import httpx
+import httpx2 as httpx
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 

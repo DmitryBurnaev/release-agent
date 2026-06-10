@@ -1,5 +1,4 @@
 import logging
-from typing import Awaitable, cast
 
 import redis.asyncio as aioredis
 
@@ -50,7 +49,7 @@ class AsyncRedisConnectors:
         logger.info("Redis: Pinging connection to %s...", connection_info)
 
         try:
-            pingable: bool = await cast(Awaitable[bool], self.client.ping())
+            pingable: bool = await self.client.ping()
             if not pingable:
                 raise aioredis.ConnectionError("Unable to ping Redis server")
 

@@ -9,7 +9,7 @@ dependencies = [
     "uvicorn==0.49.0",
     "pydantic==2.13.4",
     "pydantic-settings==2.14.1",
-    "httpx[socks]==0.28.1",
+    "httpx2[socks]==2.3.0",
     "sqlalchemy[asyncio]==2.0.50",
     "sqladmin==0.27.2",
     "alembic==1.18.4",
@@ -18,7 +18,7 @@ dependencies = [
     "pycryptodomex==3.23.0",       # for API key encryptions
     "uvloop==0.22.1",
     "redis==8.0.0",                # for Redis cache backend
-    "clickhouse-connect==1.2.0",  # for ClickHouse analytics
+    "clickhouse-connect[async]==1.2.0",  # for ClickHouse analytics
 ]
 
 [dependency-groups]
@@ -78,11 +78,18 @@ target-version = ["py313"]
 strict = true
 exclude = ["src/tests", "src/migrations", ".local", "test_*"]
 
+[[tool.mypy.overrides]]
+module = ["clickhouse_connect", "clickhouse_connect.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["src/tests"]
 python_files = ["test_*.py"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "ignore:The 'u' type code is deprecated and will be removed in Python 3\\.16:DeprecationWarning",
+]
 
 [tool.coverage.report]
 exclude_also = [

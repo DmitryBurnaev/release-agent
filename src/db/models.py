@@ -116,7 +116,7 @@ class Release(BaseModel):
     version: Mapped[str] = mapped_column(sa.String(32), nullable=False, unique=True)
     notes: Mapped[str] = mapped_column(sa.Text, nullable=False)
     url: Mapped[str] = mapped_column(sa.String(255), nullable=True)
-    is_active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.true())
+    is_active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.false())
     published_at: Mapped[datetime] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(nullable=True, onupdate=utcnow)

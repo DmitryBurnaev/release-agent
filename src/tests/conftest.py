@@ -14,7 +14,6 @@ from pydantic import SecretStr
 
 from src.tests.mocks import MockAPIToken, MockUser, MockTestResponse, MockHTTPxClient
 
-
 MINIMAL_ENV_VARS = {
     "APP_SECRET_KEY": "test-key",
     "ADMIN_PASSWORD": "test-password",
@@ -32,7 +31,7 @@ def mock_user() -> MockUser:
 @pytest.fixture
 def app_settings_test() -> AppSettings:
     return AppSettings(
-        app_secret_key=SecretStr("example-UStLb8mds9K"),
+        app_secret_key=SecretStr("example-4MCfXpYyX1i5FRW5wkStW963MLgUzqsL"),
     )
 
 

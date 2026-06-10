@@ -126,7 +126,7 @@ class TestPublicReleasesAPI:
         # Verify call arguments
         call_args = mock_log_analytics.call_args
         assert call_args is not None
-        kwargs: dict[str, Any] = call_args.kwargs  # type:ignore
+        kwargs: dict[str, Any] = call_args.kwargs  # type: ignore
         background_tasks = kwargs.pop("background_tasks")
         assert isinstance(background_tasks, BackgroundTasks)
 
@@ -159,7 +159,7 @@ class TestPublicReleasesAPI:
         # Verify call arguments
         call_args = mock_log_analytics.call_args
         assert call_args is not None
-        kwargs: dict[str, Any] = call_args.kwargs  # type:ignore
+        kwargs: dict[str, Any] = call_args.kwargs  # type: ignore
 
         request: ReleasesAnalyticsSchema = kwargs.pop("request")
         assert isinstance(request, ReleasesAnalyticsSchema)
