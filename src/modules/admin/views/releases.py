@@ -80,7 +80,6 @@ class ReleaseAdminView(BaseModelView, model=Release):
     form_columns = (
         Release.version,
         Release.published_at,
-        Release.is_active,
         Release.url,
         Release.notes,
     )

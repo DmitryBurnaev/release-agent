@@ -1,6 +1,6 @@
 {% extends "sqladmin/details.html" %}
 {% block content %}
-    {% if model.raw_token != 'None' %}
+    {% if model.raw_token != 'None' and model.raw_token != '' %}
         <div class="col-12">
             <div class="card">
                 <div class="card-body">

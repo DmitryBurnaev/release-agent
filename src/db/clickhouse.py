@@ -107,7 +107,7 @@ class AsyncClickHouseConnectors:
             return
 
         try:
-            await self._async_client.close()  # type: ignore
+            await self._async_client.close()
         except Exception as e:
             logger.error("[CH] Error during connection close: %r", e)
         else:

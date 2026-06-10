@@ -113,8 +113,8 @@ class AdminApp(Admin):
 
         return response
 
+    @staticmethod
     def get_save_redirect_url(
-        self,
         request: Request,
         form: FormData,
         model_view: ModelView,
@@ -131,7 +131,7 @@ class AdminApp(Admin):
             # required for getting instance ID after base creation's method finished
             redirect_url = str(obj.id)
         else:
-            redirect_url = super().get_save_redirect_url(request, form, model_view, obj)
+            redirect_url = Admin.get_save_redirect_url(request, form, model_view, obj)
 
         return redirect_url
 
