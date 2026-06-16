@@ -2,7 +2,9 @@ name: Release
 on:
   push:
     tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]*.[0-9]*.[0-9]*"
+      - "v*"
+      - "release-*"
 
 env:
   REGISTRY: ghcr.io
@@ -202,6 +204,7 @@ jobs:
   deploy:
     needs: [verify, prepare]
     runs-on: ubuntu-latest
+    if: github.ref_type == 'tag' && endsWith(github.ref_name, '-local-release')
 
     steps:
       - name: Checkout repository
