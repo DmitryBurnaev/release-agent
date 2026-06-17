@@ -117,9 +117,9 @@ def admin_get_link(
     settings = get_app_settings()
     base_url = settings.admin.base_url
     name = url_name or instance.__class__.__name__.lower()
-    return markupsafe.Markup(
-        f'<a href="{base_url}/{name}/{target}/{instance.id}">[#{instance.id}] {instance}</a>'
-    )
+    href = f"{base_url}/{name}/{target}/{instance.id}"
+    label = f"[#{instance.id}] {instance}"
+    return markupsafe.Markup('<a href="{href}">{label}</a>').format(href=href, label=label)
 
 
 def simple_slugify(value: str) -> str:

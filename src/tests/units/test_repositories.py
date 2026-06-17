@@ -274,7 +274,7 @@ class TestTokenRepository:
 
             assert result == mock_token
             token_repo.all.assert_awaited_once_with(token="hashed_token_value")
-            mock_logger.debug.assert_called_once()
+            mock_logger.debug.assert_called_once_with("[DB] Getting token by hash")
 
     @pytest.mark.asyncio
     async def test_get_by_token_not_found(self, token_repo: TokenRepository) -> None:
@@ -286,7 +286,7 @@ class TestTokenRepository:
 
             assert result is None
             token_repo.all.assert_awaited_once_with(token="nonexistent")
-            mock_logger.debug.assert_called_once()
+            mock_logger.debug.assert_called_once_with("[DB] Getting token by hash")
 
     @pytest.mark.asyncio
     async def test_set_active_true(self, token_repo: TokenRepository) -> None:

@@ -200,13 +200,13 @@ class TestSASessionUOW:
         with pytest.raises(Exception, match="Flush failed"):
             await uow.__aexit__(None, None, None)
 
-        # Verify error logging and session close
-        error_calls = [
+        # Verify warning logging and session close
+        warning_calls = [
             call
-            for call in mock_logger.error.call_args_list
+            for call in mock_logger.warning.call_args_list
             if call[0][0] == "[DB] Error during UOW cleanup: %r"
         ]
-        assert len(error_calls) > 0
+        assert len(warning_calls) > 0
         mock_db_session.close.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -243,12 +243,12 @@ class TestSASessionUOW:
 
         # Verify rollback was called
         mock_db_session.rollback.assert_awaited_once()
-        error_calls = [
+        warning_calls = [
             call
-            for call in mock_logger.error.call_args_list
+            for call in mock_logger.warning.call_args_list
             if call[0][0] == "[DB] Failed to commit transaction"
         ]
-        assert len(error_calls) > 0
+        assert len(warning_calls) > 0
 
     @pytest.mark.asyncio
     async def test_rollback_success(
@@ -281,12 +281,12 @@ class TestSASessionUOW:
         with pytest.raises(Exception, match="Rollback failed"):
             await uow.rollback()
 
-        error_calls = [
+        warning_calls = [
             call
-            for call in mock_logger.error.call_args_list
+            for call in mock_logger.warning.call_args_list
             if call[0][0] == "[DB] Failed to rollback transaction"
         ]
-        assert len(error_calls) > 0
+        assert len(warning_calls) > 0
 
     def test_need_to_commit_property(self) -> None:
         uow = SASessionUOW(session=AsyncMock(spec=AsyncSession))

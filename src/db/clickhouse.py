@@ -91,7 +91,7 @@ class AsyncClickHouseConnectors:
                     connect_timeout=self._clickhouse_settings.timeout,
                 )
             except Exception as e:
-                logger.error("[CH] Failed to create client: %r", e)
+                logger.warning("[CH] Failed to create client: %r", e)
                 raise RuntimeError(f"ClickHouse: Failed to create client: {e}") from e
 
         await self._ping_connection()
@@ -143,7 +143,7 @@ class AsyncClickHouseConnectors:
             if result != 1:
                 raise RuntimeError("Unable to ping ClickHouse server")
         except Exception as e:
-            logger.error("[CH] Failed to ping connection to %s: %s", connection_info, e)
+            logger.warning("[CH] Failed to ping connection to %s: %s", connection_info, e)
             raise RuntimeError(f"ClickHouse: Failed to ping connection: {e}") from e
 
         logger.info("[CH] Connection to %s is healthy", connection_info)
@@ -163,7 +163,7 @@ class AsyncClickHouseConnectors:
             logger.debug("[CH] Table %s created or already exists", table_name)
 
         except Exception as e:
-            logger.error("[CH] Failed to create table: %r", e)
+            logger.warning("[CH] Failed to create table: %r", e)
             raise
 
 

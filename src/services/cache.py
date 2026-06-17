@@ -52,11 +52,11 @@ def cache_wrap_error(
     try:
         yield
     except aioredis.RedisError as exc:
-        logger.error("Cache[%s:%s] execution error: %s", backend, operation, exc)
+        logger.warning("Cache[%s:%s] execution error: %s", backend, operation, exc)
         raise CacheBackendError(f"Redis execution error: {exc}") from exc
 
     except (TypeError, ValueError) as exc:
-        logger.error("Cache[%s:%s] common error: %s", backend, operation, exc)
+        logger.warning("Cache[%s:%s] common error: %s", backend, operation, exc)
         raise CacheBackendError(f"Common error: {exc}") from exc
 
 
