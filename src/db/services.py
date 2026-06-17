@@ -110,7 +110,7 @@ class SASessionUOW:
                 # Don't close session - dependency will handle it
 
         except Exception as exc:
-            logger.error("[DB] Error during UOW cleanup: %r", exc)
+            logger.warning("[DB] Error during UOW cleanup: %r", exc)
             if self.__owns_session:
                 await self.__session.close()
 
@@ -129,7 +129,7 @@ class SASessionUOW:
             self.__need_to_commit = False
             logger.debug("[DB] Transaction committed successfully")
         except Exception as exc:
-            logger.error("[DB] Failed to commit transaction", exc_info=exc)
+            logger.warning("[DB] Failed to commit transaction", exc_info=exc)
             await self.rollback()
             raise exc
 
@@ -141,7 +141,7 @@ class SASessionUOW:
             self.__need_to_commit = False
             logger.debug("[DB] Transaction rolled back successfully")
         except Exception as exc:
-            logger.error("[DB] Failed to rollback transaction", exc_info=exc)
+            logger.warning("[DB] Failed to rollback transaction", exc_info=exc)
             raise exc
 
     @property

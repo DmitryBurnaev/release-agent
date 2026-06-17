@@ -120,8 +120,8 @@ class TestAsyncDBConnectors:
                     # Verify close_connection was called
                     connectors.close_connection.assert_awaited_once()
 
-                    # Verify error logging
-                    mock_logger.error.assert_called_with(
+                    # Verify warning logging
+                    mock_logger.warning.assert_called_with(
                         "[DB] Failed to initialize database: %r", test_exception
                     )
 

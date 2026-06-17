@@ -57,7 +57,7 @@ class AsyncDBConnectors:
             logger.info("[DB] Database engine and session factory initialized successfully")
 
         except Exception as e:
-            logger.error("[DB] Failed to initialize database: %r", e)
+            logger.warning("[DB] Failed to initialize database: %r", e)
             await self.close_connection()
             raise
 
@@ -65,15 +65,15 @@ class AsyncDBConnectors:
         """Try to acquire a connection and execute a simple query to ensure DB is alive"""
         logger.info("[DB] Pinging connection to database...")
         if not self.engine:
-            logger.error("[DB] Engine is not initialized, cannot ping database")
+            logger.warning("[DB] Engine is not initialized, cannot ping database")
             raise RuntimeError("Engine is not initialized, cannot ping database")
 
         try:
             async with self.engine.connect() as conn:
-                await conn.execute(sa.text("SELECT 1"))
+                await conn.execute(sa.select(sa.literal(1)))
 
         except Exception as exc:
-            logger.error("[DB] Failed to ping database: %r", exc)
+            logger.warning("[DB] Failed to ping database: %r", exc)
             self.exc = exc
             raise DatabaseError("Failed to ping database") from exc
 
@@ -98,7 +98,7 @@ class AsyncDBConnectors:
                 logger.info("[DB] Database engine closed successfully")
 
         except Exception as exc:
-            logger.error("[DB] Failed to close database connection: %r", exc)
+            logger.warning("[DB] Failed to close database connection: %r", exc)
             raise
 
 

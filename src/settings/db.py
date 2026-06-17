@@ -19,8 +19,8 @@ class DBSettings(BaseSettings):
     user: str = "postgres"
     password: str = "postgres"
     name: str = "release_agent"
-    pool_min_size: int | None = Field(default_factory=lambda: None, description="Pool Min Size")
-    pool_max_size: int | None = Field(default_factory=lambda: None, description="Pool Max Size")
+    pool_min_size: int | None = Field(default=None, description="Pool Min Size")
+    pool_max_size: int | None = Field(default=None, description="Pool Max Size")
     echo: bool = False
 
     @cached_property

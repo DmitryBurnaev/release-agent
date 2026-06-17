@@ -54,7 +54,7 @@ class AsyncRedisConnectors:
                 raise aioredis.ConnectionError("Unable to ping Redis server")
 
         except aioredis.ConnectionError as e:
-            logger.error("Redis: Failed to ping connection to %s: %s", connection_info, e)
+            logger.warning("Redis: Failed to ping connection to %s: %s", connection_info, e)
             raise RuntimeError(f"Redis: Failed to ping connection: {e}") from e
 
     async def close_connection(self) -> None:

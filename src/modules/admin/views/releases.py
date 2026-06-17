@@ -56,6 +56,10 @@ def _make_date_formatter(column_name: str) -> Any:
     return formatter
 
 
+def _format_release_details_link(model: Any, _: Any) -> str:
+    return admin_get_link(cast(BaseModel, model), target="details")
+
+
 def _invalidate_releases(func: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator to invalidate releases cache after the function is called"""
 
@@ -76,7 +80,12 @@ class ReleaseAdminView(BaseModelView, model=Release):
     create_template = "releases/release_create.html"
     edit_template = "releases/release_edit.html"
     details_template = "releases/release_details.html"
-    column_list = (Release.id, Release.version, Release.published_at, Release.is_active)
+    column_list = (
+        Release.id,
+        Release.version,
+        Release.published_at,
+        Release.is_active,
+    )
     form_columns = (
         Release.version,
         Release.published_at,
@@ -92,7 +101,7 @@ class ReleaseAdminView(BaseModelView, model=Release):
         Release.updated_at: "Изменен",
     }
     column_formatters = {
-        Release.id: lambda model, a: admin_get_link(cast(BaseModel, model), target="details"),
+        Release.id: _format_release_details_link,
         Release.published_at: _make_date_formatter("published_at"),
         Release.created_at: _make_datetime_formatter("created_at"),
         Release.updated_at: _make_datetime_formatter("updated_at"),

@@ -12,6 +12,8 @@ env:
   TRIVY_VERSION: "v0.67.2"
   TRIVY_SEVERITY: "CRITICAL,HIGH,MEDIUM,LOW"
   OPENGREP_VERSION: "v1.11.2"
+  # SQLAlchemy/SQLAdmin mapped attributes are descriptors, not missed function calls.
+  OPENGREP_SQLALCHEMY_FALSE_POSITIVE_RULE: "opengrep-rules.python.lang.maintainability.is-function-without-parentheses"
   TRUFFLEHOG_VERSION: "v3.90.12"
   GITLEAKS_VERSION: "v8.28.0"
 
@@ -184,7 +186,12 @@ jobs:
       - name: Run Opengrep Scan (report)
         run: |
           export PATH='/home/runner/.opengrep/cli/latest':$PATH
-          opengrep scan --config opengrep-rules/python --json -o "${{ runner.workspace }}/opengrep-results.json" .
+          opengrep scan \
+            --config opengrep-rules/python \
+            --exclude-rule "${OPENGREP_SQLALCHEMY_FALSE_POSITIVE_RULE}" \
+            --json \
+            -o "${{ runner.workspace }}/opengrep-results.json" \
+            .
 
       - name: Upload scan results
         uses: actions/upload-artifact@v4
@@ -196,4 +203,8 @@ jobs:
       - name: Run Opengrep Scan (alert)
         run: |
           export PATH='/home/runner/.opengrep/cli/latest':$PATH
-          opengrep scan --config opengrep-rules/python --error .
+          opengrep scan \
+            --config opengrep-rules/python \
+            --exclude-rule "${OPENGREP_SQLALCHEMY_FALSE_POSITIVE_RULE}" \
+            --error \
+            .

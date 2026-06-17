@@ -1,4 +1,5 @@
 import datetime
+import logging
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 from starlette.exceptions import HTTPException
@@ -105,6 +106,15 @@ class TestMakeAPIToken:
         # Token should be longer than just the length prefix
         assert len(result.value) > 3
 
+    def test_make_api_token_does_not_log_token_value(
+        self, app_settings_test: AppSettings, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.DEBUG):
+            result = make_api_token(expires_at=None, settings=app_settings_test)
+
+        assert result.value not in caplog.text
+        assert result.hashed_value not in caplog.text
+
 
 class TestDecodeAPIToken:
 
@@ -143,6 +153,16 @@ class TestDecodeAPIToken:
 
         assert exc_info.value.status_code == 401
         assert "Invalid token" in str(exc_info.value.detail)
+
+    def test_decode_api_token_does_not_log_token_value(
+        self, app_settings_test: AppSettings, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        generated = make_api_token(expires_at=None, settings=app_settings_test)
+
+        with caplog.at_level(logging.DEBUG):
+            decode_api_token(generated.value, app_settings_test)
+
+        assert generated.value not in caplog.text
 
 
 class TestHashToken:

@@ -37,9 +37,9 @@ class AdminSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="ADMIN_")
 
-    username: str = Field(default_factory=lambda: "admin", description="Default admin username")
+    username: str = Field(default="admin", description="Default admin username")
     password: SecretStr = Field(
-        default_factory=lambda: SecretStr("release-admin!"),
+        default=SecretStr("release-admin!"),
         description="Default admin password",
     )
     session_expiration_time: int = 2 * 24 * 3600

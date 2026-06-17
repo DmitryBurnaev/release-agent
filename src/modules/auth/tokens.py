@@ -21,8 +21,6 @@ __all__ = (
     "verify_api_token",
 )
 
-from src.utils import cut_string
-
 type JWT_PAYLOAD_RAW_T = dict[str, str | int | datetime.datetime]
 
 
@@ -104,13 +102,7 @@ def make_api_token(
     )
     _, payload_part, signature_part = encrypted_token.split(".")
     sign_len_prefix = f"{len(signature_part):0>3}"
-    logger.debug(
-        "[auth] Generated token: id: '%s' | len_prefix: '%s' | payload: '%s' | signature: '%s'",
-        token_identifier,
-        sign_len_prefix,
-        payload_part,
-        signature_part,
-    )
+    logger.debug("[auth] Generated API token with signature length %s", sign_len_prefix)
     result_value = f"{payload_part}{signature_part}{sign_len_prefix}"
 
     return GeneratedToken(value=result_value, hashed_value=hash_token(token_identifier))
@@ -135,7 +127,7 @@ def decode_api_token(token: str, settings: SettingsDep) -> JWTPayload:
     Returns:
         PayloadTokenInfo - payload of the token
     """
-    logger.debug("[auth] Decoding token: '%s'", token)
+    logger.debug("[auth] Decoding API token with length %s", len(token))
     just_for_header_token = jwt_encode(payload=JWTPayload(sub="example"), settings=settings)
     header_part, _, _ = just_for_header_token.split(".")
     token, sign_len_prefix = token[:-3], token[-3:]  # last 3 symbols contain len of signature
@@ -147,7 +139,7 @@ def decode_api_token(token: str, settings: SettingsDep) -> JWTPayload:
     payload_part, signature_part = token[:-signature_length], token[-signature_length:]
 
     checking_token = f"{header_part}.{payload_part}.{signature_part}"
-    logger.debug("[auth] JWT decoding token: %s", checking_token)
+    logger.debug("[auth] Decoding JWT payload with signature length %s", signature_length)
 
     try:
         payload = jwt_decode(checking_token, settings=settings)
@@ -190,7 +182,7 @@ async def verify_api_token(
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    logger.info("[auth] Authentication: input auth token: '%s'", cut_string(auth_token, 15))
+    logger.info("[auth] Authentication: API token received")
 
     decoded_payload = decode_api_token(auth_token, settings=settings)
     raw_token_identity = decoded_payload.sub
@@ -202,9 +194,10 @@ async def verify_api_token(
     async with SASessionUOW() as uow:
         token = await TokenRepository(session=uow.session).get_by_token(hashed_token)
 
-    logger.info("[auth] Verification: token extracted '%s'", token)
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated: unknown token")
+
+    logger.info("[auth] Verification: matching token record extracted")
 
     if not token.is_active:
         raise HTTPException(status_code=401, detail="Not authenticated: inactive token")

@@ -154,7 +154,7 @@ class TokenRepository(BaseRepository[Token]):
 
     async def get_by_token(self, hashed_token: str) -> Token | None:
         """Get token by hashed token value"""
-        logger.debug("[DB] Getting token by hash: %s", hashed_token)
+        logger.debug("[DB] Getting token by hash")
         filtered_tokens = await self.all(token=hashed_token)
         if not filtered_tokens:
             return None

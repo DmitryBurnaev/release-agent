@@ -1,4 +1,4 @@
-from src.utils import singleton
+from src.utils import admin_get_link, singleton
 
 
 class TestSingleton:
@@ -39,6 +39,21 @@ class TestSingleton:
         assert instance2.modified is True
 
         instance2.value = ""
+
+
+class TestAdminGetLink:
+    def test_escapes_model_string(self) -> None:
+        class DangerousModel:
+            id = 7
+
+            def __str__(self) -> str:
+                return '<script>alert("x")</script>'
+
+        result = str(admin_get_link(DangerousModel()))  # type: ignore[arg-type]
+
+        assert '<script>alert("x")</script>' not in result
+        assert "&lt;script&gt;alert(&#34;x&#34;)&lt;/script&gt;" in result
+        assert 'href="/radm/dangerousmodel/edit/7"' in result
 
     def test_multiple_singleton_classes(self) -> None:
         @singleton

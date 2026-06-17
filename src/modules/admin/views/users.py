@@ -15,6 +15,10 @@ __all__ = ("UserAdminView",)
 logger = logging.getLogger(__name__)
 
 
+def _format_user_link(model: Any, _: Any) -> str:
+    return admin_get_link(cast(BaseModel, model))
+
+
 class UserAdminForm(Form):
     """Provides extra validation for users' creation/updating"""
 
@@ -44,9 +48,13 @@ class UserAdminView(BaseModelView, model=User):
 
     form = UserAdminForm
     icon = "fa-solid fa-person-drowning"
-    column_list = (User.id, User.username, User.is_active)
+    column_list = (
+        User.id,
+        User.username,
+        User.is_active,
+    )
     column_details_list = (User.id, User.username, User.email)
-    column_formatters = {User.username: lambda model, a: admin_get_link(cast(BaseModel, model))}
+    column_formatters = {User.username: _format_user_link}
 
     async def insert_model(self, request: Request, data: FormDataType) -> Any:
         """Create a new user and insert it into the database"""
