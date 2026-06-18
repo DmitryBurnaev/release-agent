@@ -102,7 +102,6 @@ def make_api_token(
     )
     _, payload_part, signature_part = encrypted_token.split(".")
     sign_len_prefix = f"{len(signature_part):0>3}"
-    logger.debug("[auth] Generated API token with signature length %s", sign_len_prefix)
     result_value = f"{payload_part}{signature_part}{sign_len_prefix}"
 
     return GeneratedToken(value=result_value, hashed_value=hash_token(token_identifier))
@@ -127,7 +126,6 @@ def decode_api_token(token: str, settings: SettingsDep) -> JWTPayload:
     Returns:
         PayloadTokenInfo - payload of the token
     """
-    logger.debug("[auth] Decoding API token with length %s", len(token))
     just_for_header_token = jwt_encode(payload=JWTPayload(sub="example"), settings=settings)
     header_part, _, _ = just_for_header_token.split(".")
     token, sign_len_prefix = token[:-3], token[-3:]  # last 3 symbols contain len of signature
