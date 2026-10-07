@@ -9,6 +9,7 @@ from typing import (
     Sequence,
     ParamSpec,
     cast,
+    overload,
 )
 
 from sqlalchemy import select, BinaryExpression, delete, Select, update, CursorResult, func
@@ -114,11 +115,25 @@ class BaseRepository(Generic[ModelT]):
         await self.session.flush()
         logger.info("[DB] Updated %i instances", result.rowcount)
 
+    @overload
+    def _prepare_statement(
+        self,
+        filters: dict[str, FilterT],
+        entities: None = None,
+    ) -> Select[ModelT]: ...
+
+    @overload
+    def _prepare_statement(
+        self,
+        filters: dict[str, FilterT],
+        entities: list[ColumnsClauseRole | SQLCoreOperations[Any]],
+    ) -> Select[Any]: ...
+
     def _prepare_statement(
         self,
         filters: dict[str, FilterT],
         entities: list[ColumnsClauseRole | SQLCoreOperations[Any]] | None = None,
-    ) -> Select[tuple[ModelT]]:
+    ) -> Select[Any]:
         filters_stmts: list[BinaryExpression[bool]] = []
         if (ids := filters.pop("ids", None)) and isinstance(ids, list):
             filters_stmts.append(self.model.id.in_(ids))
@@ -128,7 +143,7 @@ class BaseRepository(Generic[ModelT]):
         if filters_stmts:
             statement = statement.filter(*filters_stmts)
 
-        return statement
+        return cast(Select[Any], statement)
 
 
 class UserRepository(BaseRepository[User]):

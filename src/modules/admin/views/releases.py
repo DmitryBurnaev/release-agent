@@ -140,7 +140,7 @@ class ReleaseAdminView(BaseModelView, model=Release):
         self._cached_query = query
         return query
 
-    def count_query(self, request: Request) -> Select[tuple[int]]:
+    def count_query(self, request: Request) -> Select[int]:
         """Calculates total number of releases (used for correct pagination)"""
         if hasattr(self, "_cached_query"):
             query = self._cached_query
