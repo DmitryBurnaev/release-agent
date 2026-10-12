@@ -39,7 +39,6 @@ class ReleasePublicResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     version: str
-    product: str = Field(validation_alias="product_name")
     notes: str
     url: str | None
     published_at: datetime

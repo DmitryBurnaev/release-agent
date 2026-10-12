@@ -45,10 +45,12 @@ def upgrade() -> None:
     op.create_unique_constraint(
         "uq_releases_product_id_version", "releases", ["product_id", "version"]
     )
+    op.create_index("ix_releases_product_id", "releases", ["product_id"])
 
 
 def downgrade() -> None:
     """Restore the global release-version constraint."""
+    op.drop_index("ix_releases_product_id", table_name="releases")
     op.drop_constraint("uq_releases_product_id_version", "releases", type_="unique")
     op.create_unique_constraint("releases_version_key", "releases", ["version"])
     op.drop_constraint("fk_releases_product_id_products", "releases", type_="foreignkey")

@@ -6,6 +6,7 @@ from starlette.testclient import TestClient
 from starlette.background import BackgroundTasks
 
 from src.db.clickhouse import ReleasesAnalyticsSchema
+from src.constants import DEFAULT_PRODUCT_NAME
 
 
 def make_latest_cache_payload(version: str = "2026.3.4") -> dict[str, Any]:
@@ -13,7 +14,6 @@ def make_latest_cache_payload(version: str = "2026.3.4") -> dict[str, Any]:
         "items": [
             {
                 "version": version,
-                "product_name": "default",
                 "notes": "## Latest",
                 "url": None,
                 "published_at": "2026-03-04T12:00:00",
@@ -38,14 +38,12 @@ def mock_cached_releases() -> Generator[MagicMock, None, None]:
             [
                 {
                     "version": "2025.12.100",
-                    "product_name": "default",
                     "notes": "## Nothing here?",
                     "url": "https://test.example.com/t2",
                     "published_at": "2025-12-12T12:00:00",
                 },
                 {
                     "version": "2025.12.99",
-                    "product_name": "default",
                     "notes": "## What's new?",
                     "url": "https://test.example.com/t1",
                     "published_at": "2025-12-01T12:00:00",
@@ -54,6 +52,18 @@ def mock_cached_releases() -> Generator[MagicMock, None, None]:
             1,
         )
         yield mock_cache
+
+
+@pytest.fixture(autouse=True)
+def mock_product_lookup() -> Generator[AsyncMock, None, None]:
+    with patch(
+        "src.modules.api.public.ProductRepository.get_by_name",
+        new_callable=AsyncMock,
+    ) as mock_lookup:
+        product = MagicMock()
+        product.id = 42
+        mock_lookup.return_value = product
+        yield mock_lookup
 
 
 @pytest.fixture
@@ -69,7 +79,12 @@ def mock_release_cache() -> Generator[MagicMock, None, None]:
 class TestPublicReleasesAPI:
     """Test public releases API endpoint with analytics logging"""
 
-    def test_get_active_releases_without_auth(self, client: TestClient) -> None:
+    def test_get_active_releases_without_auth(
+        self,
+        mock_cached_releases: MagicMock,
+        mock_product_lookup: AsyncMock,
+        client: TestClient,
+    ) -> None:
         """Test that public endpoint works without authentication"""
         response = client.get("/public/releases?offset=0&limit=10")
         assert response.status_code == 200
@@ -78,6 +93,9 @@ class TestPublicReleasesAPI:
         assert "total" in data
         assert "offset" in data
         assert "limit" in data
+        assert "product" not in data["items"][0]
+        mock_product_lookup.assert_awaited_once_with(DEFAULT_PRODUCT_NAME)
+        mock_cached_releases.assert_awaited_once_with(product_id=42, offset=0, limit=10)
 
     def test_get_active_releases_with_analytics_params(self, client: TestClient) -> None:
         """Test endpoint with analytics query parameters"""
@@ -241,7 +259,7 @@ class TestPublicReleasesAPI:
 
         assert response.status_code == 200
         assert response.json() == {"version": "2025.12.100"}
-        mock_cached_releases.assert_awaited_once_with(product="default", offset=0, limit=1)
+        mock_cached_releases.assert_awaited_once_with(product_id=42, offset=0, limit=1)
         mock_release_cache.set.assert_awaited_once()
         cache_key, cache_payload = mock_release_cache.set.await_args.args
         assert cache_key == "active_releases_page_default_0_1"
@@ -262,7 +280,7 @@ class TestPublicReleasesAPI:
 
         assert response.status_code == 200
         assert response.json() == {"version": "2025.12.100"}
-        mock_cached_releases.assert_awaited_once_with(product="default", offset=0, limit=1)
+        mock_cached_releases.assert_awaited_once_with(product_id=42, offset=0, limit=1)
         mock_release_cache.set.assert_awaited_once()
 
     def test_get_latest_version_does_not_log_analytics(
@@ -283,6 +301,7 @@ class TestPublicReleasesAPI:
         self,
         mock_release_cache: MagicMock,
         mock_cached_releases: MagicMock,
+        mock_product_lookup: AsyncMock,
         client: TestClient,
     ) -> None:
         """Each product is fetched and cached independently."""
@@ -290,7 +309,8 @@ class TestPublicReleasesAPI:
 
         assert response.status_code == 200
         mock_release_cache.get.assert_awaited_once_with("active_releases_page_mobile_0_10")
-        mock_cached_releases.assert_awaited_once_with(product="mobile", offset=0, limit=10)
+        mock_product_lookup.assert_awaited_once_with("mobile")
+        mock_cached_releases.assert_awaited_once_with(product_id=42, offset=0, limit=10)
 
     def test_get_latest_version_returns_404_without_active_releases(
         self,
