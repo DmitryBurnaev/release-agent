@@ -126,7 +126,9 @@ class Release(BaseModel):
     __tablename__ = "releases"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    product_id: Mapped[int] = mapped_column(sa.ForeignKey("products.id"), nullable=False)
+    product_id: Mapped[int] = mapped_column(
+        sa.ForeignKey("products.id"), nullable=False, index=True
+    )
     version: Mapped[str] = mapped_column(sa.String(32), nullable=False)
     notes: Mapped[str] = mapped_column(sa.Text, nullable=False)
     url: Mapped[str] = mapped_column(sa.String(255), nullable=True)

@@ -13,7 +13,7 @@ from src.db.clickhouse import ReleasesAnalyticsSchema
 from src.exceptions import InstanceLookupError
 from src.models import LatestVersionResponse, ReleasePublicResponse, PaginatedResponse
 from src.modules.api import ErrorHandlingBaseRoute
-from src.db.repositories import ReleaseRepository
+from src.db.repositories import ProductRepository, ReleaseRepository
 from src.db.services import SASessionUOW
 from src.services.cache import CacheProtocol, get_cache
 from src.services.analytics import AnalyticsService
@@ -70,18 +70,12 @@ async def get_latest_release_version(
 
     if response_result is None:
         logger.debug("[API] Public: Latest release not found in cache, getting from database")
-        async with SASessionUOW() as uow:
-            repo = ReleaseRepository(session=uow.session)
-            releases, total = await repo.get_active_releases(
-                product=product, offset=offset, limit=limit
-            )
-            response_result = PaginatedResponse[ReleasePublicResponse](
-                items=[ReleasePublicResponse.model_validate(release) for release in releases],
-                total=total,
-                offset=offset,
-                limit=limit,
-            )
-            await cache.set(cache_key, response_result.model_dump(mode="json"))
+        response_result = await _get_active_release_page(
+            product_name=product,
+            offset=offset,
+            limit=limit,
+        )
+        await cache.set(cache_key, response_result.model_dump(mode="json"))
 
     version = _get_latest_version(response_result)
     if version is None:
@@ -133,25 +127,18 @@ async def get_active_releases(
             offset,
             limit,
         )
-        # TODO: cover with tests and refactor (use service layer instead)
-        async with SASessionUOW() as uow:
-            repo = ReleaseRepository(session=uow.session)
-            releases, total = await repo.get_active_releases(
-                product=product, offset=offset, limit=limit
-            )
-            response_result = PaginatedResponse[ReleasePublicResponse](
-                items=[ReleasePublicResponse.model_validate(release) for release in releases],
-                total=total,
-                offset=offset,
-                limit=limit,
-            )
-            await cache.set(cache_key, response_result.model_dump(mode="json"))
-            logger.info(
-                "[API] Public: Releases got from DB and cached: %i releases | total: %i | latest: %s",
-                len(response_result.items),
-                total,
-                _get_latest_version(response_result) or "N/A",
-            )
+        response_result = await _get_active_release_page(
+            product_name=product,
+            offset=offset,
+            limit=limit,
+        )
+        await cache.set(cache_key, response_result.model_dump(mode="json"))
+        logger.info(
+            "[API] Public: Releases got from DB and cached: %i releases | total: %i | latest: %s",
+            len(response_result.items),
+            response_result.total,
+            _get_latest_version(response_result) or "N/A",
+        )
         response_status = 200
 
     # Log request to analytics (non-blocking)
@@ -184,6 +171,32 @@ async def get_active_releases(
 def _get_latest_version(response_result: PaginatedResponse[ReleasePublicResponse]) -> str | None:
     """Get latest release version from a paginated release response."""
     return response_result.items[0].version if response_result.items else None
+
+
+async def _get_active_release_page(
+    product_name: str,
+    offset: int,
+    limit: int,
+) -> PaginatedResponse[ReleasePublicResponse]:
+    """Load an active release page for the product identified by its name."""
+    async with SASessionUOW() as uow:
+        product = await ProductRepository(session=uow.session).get_by_name(product_name)
+        if product is None:
+            return PaginatedResponse[ReleasePublicResponse](
+                items=[], total=0, offset=offset, limit=limit
+            )
+
+        releases, total = await ReleaseRepository(session=uow.session).get_active_releases(
+            product_id=product.id,
+            offset=offset,
+            limit=limit,
+        )
+        return PaginatedResponse[ReleasePublicResponse](
+            items=[ReleasePublicResponse.model_validate(release) for release in releases],
+            total=total,
+            offset=offset,
+            limit=limit,
+        )
 
 
 def _get_cached_release_page(

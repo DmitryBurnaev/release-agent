@@ -225,7 +225,7 @@ class ReleaseRepository(BaseRepository[Release]):
         return active_stat
 
     async def get_active_releases(
-        self, product: str, offset: int = 0, limit: int = 10
+        self, product_id: int, offset: int = 0, limit: int = 10
     ) -> tuple[list[Release], int]:
         """Get paginated active releases ordered by published_at descending.
 
@@ -237,8 +237,8 @@ class ReleaseRepository(BaseRepository[Release]):
             Tuple of (releases list, total count)
         """
         logger.debug(
-            "[DB] Getting active releases for product %s (offset=%i, limit=%i)",
-            product,
+            "[DB] Getting active releases for product ID %i (offset=%i, limit=%i)",
+            product_id,
             offset,
             limit,
         )
@@ -246,7 +246,7 @@ class ReleaseRepository(BaseRepository[Release]):
         releases_criteria = (
             self.model.is_active.is_(True),
             self.model.published_at <= utcnow(),
-            self.model.product.has(Product.name == product),
+            self.model.product_id == product_id,
         )
         releases = await self.session.scalars(
             select(self.model)

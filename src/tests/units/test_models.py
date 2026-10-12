@@ -28,3 +28,6 @@ class TestProductReleaseRelation:
 
     def test_product_has_releases_relationship(self) -> None:
         assert Product.releases.property.mapper.class_ is Release
+
+    def test_release_product_id_is_indexed(self) -> None:
+        assert any(index.columns.keys() == ["product_id"] for index in Release.__table__.indexes)
