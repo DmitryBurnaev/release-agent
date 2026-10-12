@@ -107,19 +107,42 @@ class Token(BaseModel):
         setattr(self, "__raw_token", value)
 
 
+class Product(BaseModel):
+    """A product with its own independently versioned releases."""
+
+    __tablename__ = "products"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(128), nullable=False, unique=True)
+    releases: Mapped[list["Release"]] = relationship(back_populates="product")
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class Release(BaseModel):
     """Release model representing a release in the system."""
 
     __tablename__ = "releases"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    version: Mapped[str] = mapped_column(sa.String(32), nullable=False, unique=True)
+    product_id: Mapped[int] = mapped_column(sa.ForeignKey("products.id"), nullable=False)
+    version: Mapped[str] = mapped_column(sa.String(32), nullable=False)
     notes: Mapped[str] = mapped_column(sa.Text, nullable=False)
     url: Mapped[str] = mapped_column(sa.String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.false())
     published_at: Mapped[datetime] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(nullable=True, onupdate=utcnow)
+
+    product: Mapped[Product] = relationship(back_populates="releases", lazy="joined")
+
+    __table_args__ = (sa.UniqueConstraint("product_id", "version"),)
+
+    @property
+    def product_name(self) -> str:
+        """Return the product name for API serialization."""
+        return self.product.name
 
     def __str__(self) -> str:
         return f"Release '{self.version}'"

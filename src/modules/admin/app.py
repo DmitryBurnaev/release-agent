@@ -19,6 +19,7 @@ from src.modules.admin.views import (
     BaseModelView,
     UserAdminView,
     TokenAdminView,
+    ProductAdminView,
     ReleaseAdminView,
 )
 from src.modules.admin.views.analytics import (
@@ -38,6 +39,7 @@ if TYPE_CHECKING:
 ADMIN_VIEWS: tuple[type[BaseView], ...] = (
     UserAdminView,
     TokenAdminView,
+    ProductAdminView,
     ReleaseAdminView,
     AnalyticsQueryAdminView,
     AnalyticsDashboardAdminView,

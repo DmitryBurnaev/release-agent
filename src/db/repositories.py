@@ -17,12 +17,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import SQLCoreOperations
 from sqlalchemy.sql.roles import ColumnsClauseRole
 
-from src.db.models import BaseModel, User, Token, Release
+from src.db.models import BaseModel, Product, User, Token, Release
 from src.exceptions import InstanceLookupError
 
 __all__ = (
     "UserRepository",
     "TokenRepository",
+    "ProductRepository",
     "ReleaseRepository",
 )
 
@@ -187,6 +188,17 @@ class TokenRepository(BaseRepository[Token]):
         await self.update_by_ids(token_ids, {"is_active": is_active})
 
 
+class ProductRepository(BaseRepository[Product]):
+    """Product-specific database operations."""
+
+    model = Product
+
+    async def get_by_name(self, name: str) -> Product | None:
+        """Get a product by its unique name."""
+        products = await self.all(name=name)
+        return products[0] if products else None
+
+
 class ReleaseRepository(BaseRepository[Release]):
     """Release's repository."""
 
@@ -213,7 +225,7 @@ class ReleaseRepository(BaseRepository[Release]):
         return active_stat
 
     async def get_active_releases(
-        self, offset: int = 0, limit: int = 10
+        self, product: str, offset: int = 0, limit: int = 10
     ) -> tuple[list[Release], int]:
         """Get paginated active releases ordered by published_at descending.
 
@@ -224,11 +236,17 @@ class ReleaseRepository(BaseRepository[Release]):
         Returns:
             Tuple of (releases list, total count)
         """
-        logger.debug("[DB] Getting active releases (offset=%i, limit=%i)", offset, limit)
+        logger.debug(
+            "[DB] Getting active releases for product %s (offset=%i, limit=%i)",
+            product,
+            offset,
+            limit,
+        )
 
         releases_criteria = (
             self.model.is_active.is_(True),
             self.model.published_at <= utcnow(),
+            self.model.product.has(Product.name == product),
         )
         releases = await self.session.scalars(
             select(self.model)
