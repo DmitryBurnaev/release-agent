@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from starlette.background import BackgroundTasks
 from starlette.responses import PlainTextResponse
 
-from src.constants import CACHE_KEY_ACTIVE_RELEASES_PAGE
+from src.constants import CACHE_KEY_ACTIVE_RELEASES_PAGE, DEFAULT_PRODUCT_NAME
 from src.db.clickhouse import ReleasesAnalyticsSchema
 from src.exceptions import InstanceLookupError
 from src.models import LatestVersionResponse, ReleasePublicResponse, PaginatedResponse
@@ -50,6 +50,7 @@ public_router = APIRouter(
 
 @public_router.get("/latest", response_model=LatestVersionResponse)
 async def get_latest_release_version(
+    product: str = Query(DEFAULT_PRODUCT_NAME, min_length=1, max_length=128),
     response_format: _LatestVersionFormat = Query(
         _LatestVersionFormat.JSON,
         alias="format",
@@ -59,7 +60,7 @@ async def get_latest_release_version(
     """Get the latest active release version (public endpoint, no analytics tracking)."""
     offset = 0
     limit = 1
-    cache_key = CACHE_KEY_ACTIVE_RELEASES_PAGE.format(offset=offset, limit=limit)
+    cache_key = CACHE_KEY_ACTIVE_RELEASES_PAGE.format(product=product, offset=offset, limit=limit)
     cache: CacheProtocol = get_cache()
     response_result: PaginatedResponse[ReleasePublicResponse] | None = None
 
@@ -71,7 +72,9 @@ async def get_latest_release_version(
         logger.debug("[API] Public: Latest release not found in cache, getting from database")
         async with SASessionUOW() as uow:
             repo = ReleaseRepository(session=uow.session)
-            releases, total = await repo.get_active_releases(offset=offset, limit=limit)
+            releases, total = await repo.get_active_releases(
+                product=product, offset=offset, limit=limit
+            )
             response_result = PaginatedResponse[ReleasePublicResponse](
                 items=[ReleasePublicResponse.model_validate(release) for release in releases],
                 total=total,
@@ -96,6 +99,7 @@ async def get_active_releases(
     background_tasks: BackgroundTasks,
     offset: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(10, ge=1, le=100, description="Maximum number of items to return"),
+    product: str = Query(DEFAULT_PRODUCT_NAME, min_length=1, max_length=128),
     current_version: str | None = Query(None, description="Current client version"),
     install_id: str | None = Query(None, description="Installation ID"),
     is_corporate: bool | None = Query(None, description="Indicates if the client is corporate"),
@@ -108,7 +112,7 @@ async def get_active_releases(
     settings = get_app_settings()
     cached_result: dict[str, Any] | None = None
     cache: CacheProtocol = get_cache()
-    cache_key = CACHE_KEY_ACTIVE_RELEASES_PAGE.format(offset=offset, limit=limit)
+    cache_key = CACHE_KEY_ACTIVE_RELEASES_PAGE.format(product=product, offset=offset, limit=limit)
     if settings.flags.api_cache_enabled:
         cached_data = await cache.get(cache_key)
         cached_result = cached_data if cached_data and isinstance(cached_data, dict) else None
@@ -132,7 +136,9 @@ async def get_active_releases(
         # TODO: cover with tests and refactor (use service layer instead)
         async with SASessionUOW() as uow:
             repo = ReleaseRepository(session=uow.session)
-            releases, total = await repo.get_active_releases(offset=offset, limit=limit)
+            releases, total = await repo.get_active_releases(
+                product=product, offset=offset, limit=limit
+            )
             response_result = PaginatedResponse[ReleasePublicResponse](
                 items=[ReleasePublicResponse.model_validate(release) for release in releases],
                 total=total,

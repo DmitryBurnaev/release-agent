@@ -262,7 +262,7 @@ def get_cache(backend: Literal["redis", "memory"] = "redis") -> CacheProtocol:
 
 async def invalidate_release_cache() -> None:
     """Invalidate cache for active releases (all pages)"""
-    prefix = CACHE_KEY_ACTIVE_RELEASES_PAGE.replace("{offset}_{limit}", "")
+    prefix = CACHE_KEY_ACTIVE_RELEASES_PAGE.split("{", maxsplit=1)[0]
     # Invalidate all paginated cache keys
     cache: CacheProtocol = get_cache()
     await cache.invalidate(pattern=f"{prefix}*")

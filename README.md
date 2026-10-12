@@ -214,12 +214,13 @@ The application automatically logs all requests to the `/public/releases` endpoi
 
 **API Endpoint:**
 ```
-GET /public/releases?offset=0&limit=10&client_version=1.0.0&installation_id=abc123&is_corporate=true
+GET /public/releases?product=default&offset=0&limit=10&client_version=1.0.0&installation_id=abc123&is_corporate=true
 ```
 
 **Query Parameters:**
 - `offset` - Number of items to skip (default: 0)
 - `limit` - Maximum number of items to return (default: 10, max: 100)
+- `product` - Product name whose releases to return (default: `default`)
 - `client_version` - Client version string (optional)
 - `installation_id` - Installation ID (optional)
 - `is_corporate` - Whether client is corporate (optional, boolean)

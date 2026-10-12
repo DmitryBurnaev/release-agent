@@ -9,11 +9,12 @@ from src.models import (
     PaginatedResponse,
 )
 from src.modules.api import ErrorHandlingBaseRoute
-from src.db.repositories import ReleaseRepository
+from src.db.repositories import ProductRepository, ReleaseRepository
 from src.db.services import SASessionUOW
 from src.db.dependencies import get_uow_with_session
 from src.services.cache import invalidate_release_cache
 from src.utils import utcnow
+from src.exceptions import InstanceLookupError
 
 __all__ = ("admin_router",)
 
@@ -78,6 +79,11 @@ async def create_release(
         release_info.setdefault("notes", "")
         release_info.setdefault("url", "")
         release_info.setdefault("published_at", utcnow())
+        product_name = release_info.pop("product")
+        product = await ProductRepository(session=uow.session).get_by_name(product_name)
+        if product is None:
+            raise InstanceLookupError(f"Product '{product_name}' not found")
+        release_info["product_id"] = product.id
         release = await repo.create(value=release_info)
         uow.mark_for_commit()
 
@@ -97,6 +103,11 @@ async def update_release(
         repo = ReleaseRepository(session=uow.session)
         release = await repo.get(release_id)
         update_dict = release_data.model_dump(exclude_unset=True)
+        if product_name := update_dict.pop("product", None):
+            product = await ProductRepository(session=uow.session).get_by_name(product_name)
+            if product is None:
+                raise InstanceLookupError(f"Product '{product_name}' not found")
+            update_dict["product_id"] = product.id
         await repo.update(release, **update_dict)
         uow.mark_for_commit()
 

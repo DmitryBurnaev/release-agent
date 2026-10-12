@@ -82,17 +82,20 @@ class ReleaseAdminView(BaseModelView, model=Release):
     details_template = "releases/release_details.html"
     column_list = (
         Release.id,
+        Release.product,
         Release.version,
         Release.published_at,
         Release.is_active,
     )
     form_columns = (
+        Release.product,
         Release.version,
         Release.published_at,
         Release.url,
         Release.notes,
     )
     column_labels = {
+        Release.product: "Продукт",
         Release.version: "Версия",
         Release.published_at: "Дата публикации",
         Release.is_active: "Активен",
@@ -113,6 +116,7 @@ class ReleaseAdminView(BaseModelView, model=Release):
     }
     column_details_list = (
         Release.id,
+        Release.product,
         Release.version,
         Release.is_active,
         Release.published_at,

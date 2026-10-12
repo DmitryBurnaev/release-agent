@@ -13,6 +13,7 @@ def make_latest_cache_payload(version: str = "2026.3.4") -> dict[str, Any]:
         "items": [
             {
                 "version": version,
+                "product_name": "default",
                 "notes": "## Latest",
                 "url": None,
                 "published_at": "2026-03-04T12:00:00",
@@ -37,12 +38,14 @@ def mock_cached_releases() -> Generator[MagicMock, None, None]:
             [
                 {
                     "version": "2025.12.100",
+                    "product_name": "default",
                     "notes": "## Nothing here?",
                     "url": "https://test.example.com/t2",
                     "published_at": "2025-12-12T12:00:00",
                 },
                 {
                     "version": "2025.12.99",
+                    "product_name": "default",
                     "notes": "## What's new?",
                     "url": "https://test.example.com/t1",
                     "published_at": "2025-12-01T12:00:00",
@@ -221,7 +224,7 @@ class TestPublicReleasesAPI:
         response = client.get("/public/releases/latest")
 
         assert response.status_code == 200
-        mock_release_cache.get.assert_awaited_once_with("active_releases_page_0_1")
+        mock_release_cache.get.assert_awaited_once_with("active_releases_page_default_0_1")
         mock_release_cache.set.assert_not_awaited()
         mock_cached_releases.assert_not_awaited()
 
@@ -238,10 +241,10 @@ class TestPublicReleasesAPI:
 
         assert response.status_code == 200
         assert response.json() == {"version": "2025.12.100"}
-        mock_cached_releases.assert_awaited_once_with(offset=0, limit=1)
+        mock_cached_releases.assert_awaited_once_with(product="default", offset=0, limit=1)
         mock_release_cache.set.assert_awaited_once()
         cache_key, cache_payload = mock_release_cache.set.await_args.args
-        assert cache_key == "active_releases_page_0_1"
+        assert cache_key == "active_releases_page_default_0_1"
         assert cache_payload["items"][0]["version"] == "2025.12.100"
         assert cache_payload["offset"] == 0
         assert cache_payload["limit"] == 1
@@ -259,7 +262,7 @@ class TestPublicReleasesAPI:
 
         assert response.status_code == 200
         assert response.json() == {"version": "2025.12.100"}
-        mock_cached_releases.assert_awaited_once_with(offset=0, limit=1)
+        mock_cached_releases.assert_awaited_once_with(product="default", offset=0, limit=1)
         mock_release_cache.set.assert_awaited_once()
 
     def test_get_latest_version_does_not_log_analytics(
@@ -275,6 +278,19 @@ class TestPublicReleasesAPI:
 
         assert response.status_code == 200
         mock_log_analytics.assert_not_called()
+
+    def test_get_active_releases_uses_product_specific_cache_key(
+        self,
+        mock_release_cache: MagicMock,
+        mock_cached_releases: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Each product is fetched and cached independently."""
+        response = client.get("/public/releases?product=mobile")
+
+        assert response.status_code == 200
+        mock_release_cache.get.assert_awaited_once_with("active_releases_page_mobile_0_10")
+        mock_cached_releases.assert_awaited_once_with(product="mobile", offset=0, limit=10)
 
     def test_get_latest_version_returns_404_without_active_releases(
         self,
