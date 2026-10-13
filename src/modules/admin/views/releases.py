@@ -4,6 +4,7 @@ from typing import cast, Any, Callable
 import functools
 
 from sqladmin import action
+from sqladmin.filters import ForeignKeyFilter
 from sqlalchemy import Select, select, func
 from wtforms import HiddenField
 from starlette.requests import Request
@@ -11,7 +12,7 @@ from starlette.responses import Response, RedirectResponse
 
 from src.db.repositories import ReleaseRepository
 from src.db.services import SASessionUOW
-from src.db.models import BaseModel, Release
+from src.db.models import BaseModel, Product, Release
 from src.services.cache import invalidate_release_cache
 from src.utils import admin_get_link
 from src.modules.admin.views.base import BaseModelView
@@ -125,6 +126,7 @@ class ReleaseAdminView(BaseModelView, model=Release):
         Release.url,
     )
     column_default_li = ()
+    column_filters = [ForeignKeyFilter(Release.product_id, Product.name, title="Продукт")]
     form_overrides = dict(notes=HiddenField)
     _cached_query: ReleaseSelectT
     update_model = _invalidate_releases(BaseModelView.update_model)
