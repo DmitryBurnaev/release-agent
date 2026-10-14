@@ -1,8 +1,10 @@
 import time
 
 import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.services.cache import InMemoryCache
+from src.constants import CACHE_KEY_DEFAULT_PRODUCT
+from src.services.cache import InMemoryCache, invalidate_product_cache
 
 
 class TestCache:
@@ -55,3 +57,18 @@ class TestCache:
         result2 = await cache.get("key2")
         assert result1 is None
         assert result2 is None
+
+    @pytest.mark.asyncio
+    async def test_product_invalidation_clears_default_and_release_pages(self) -> None:
+        cache = MagicMock()
+        cache.invalidate = AsyncMock()
+
+        with patch("src.services.cache.get_cache", return_value=cache):
+            await invalidate_product_cache()
+
+        assert cache.invalidate.await_args_list[0].kwargs == {
+            "key": CACHE_KEY_DEFAULT_PRODUCT
+        }
+        assert cache.invalidate.await_args_list[1].kwargs == {
+            "pattern": "active_releases_page_*"
+        }

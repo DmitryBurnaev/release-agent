@@ -2,8 +2,6 @@ from typing import Optional, Generic, TypeVar
 from datetime import date, datetime
 from pydantic import BaseModel, Field, ConfigDict
 
-from src.constants import DEFAULT_PRODUCT_NAME
-
 T = TypeVar("T")
 
 __all__ = (
@@ -92,9 +90,6 @@ class ReleaseCreate(ReleaseBaseModify):
     version: str = Field(..., max_length=32, description="Release version")
     notes: str = Field(default_factory=str, description="Release notes")
     url: str = Field(default_factory=str, max_length=255, description="Release URL link")
-    product: str = Field(
-        DEFAULT_PRODUCT_NAME, min_length=1, max_length=128, description="Product name"
-    )
 
 
 class ReleaseUpdate(ReleaseBaseModify):

@@ -206,6 +206,7 @@ The application automatically logs all requests to the `/public/releases` endpoi
 - Client version (optional query parameter)
 - Installation ID (optional query parameter)
 - Corporate client flag (optional query parameter)
+- Requested product name
 - Request path and method
 - HTTP response status
 - Response time (milliseconds)
@@ -214,13 +215,13 @@ The application automatically logs all requests to the `/public/releases` endpoi
 
 **API Endpoint:**
 ```
-GET /public/releases?product=default&offset=0&limit=10&client_version=1.0.0&installation_id=abc123&is_corporate=true
+GET /public/releases?product=podcasts&offset=0&limit=10&client_version=1.0.0&installation_id=abc123&is_corporate=true
 ```
 
 **Query Parameters:**
 - `offset` - Number of items to skip (default: 0)
 - `limit` - Maximum number of items to return (default: 10, max: 100)
-- `product` - Product name whose releases to return (default: `default`)
+- `product` - Optional product name whose releases to return. When omitted, the product marked as default is used; if no product is marked and exactly one exists, that product is used automatically.
 - `client_version` - Client version string (optional)
 - `installation_id` - Installation ID (optional)
 - `is_corporate` - Whether client is corporate (optional, boolean)

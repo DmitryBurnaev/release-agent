@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from starlette.background import BackgroundTasks
 from starlette.responses import PlainTextResponse
 
-from src.constants import CACHE_KEY_ACTIVE_RELEASES_PAGE, DEFAULT_PRODUCT_NAME
+from src.constants import CACHE_KEY_ACTIVE_RELEASES_PAGE
 from src.db.clickhouse import ReleasesAnalyticsSchema
 from src.exceptions import InstanceLookupError
 from src.models import LatestVersionResponse, ReleasePublicResponse, PaginatedResponse
@@ -17,6 +17,7 @@ from src.db.repositories import ProductRepository, ReleaseRepository
 from src.db.services import SASessionUOW
 from src.services.cache import CacheProtocol, get_cache
 from src.services.analytics import AnalyticsService
+from src.services.products import get_default_product
 from src.settings import get_app_settings
 from src.settings.db import get_clickhouse_settings
 from src.utils import utcnow
@@ -50,7 +51,12 @@ public_router = APIRouter(
 
 @public_router.get("/latest", response_model=LatestVersionResponse)
 async def get_latest_release_version(
-    product: str = Query(DEFAULT_PRODUCT_NAME, min_length=1, max_length=128),
+    product: str | None = Query(
+        None,
+        min_length=1,
+        max_length=128,
+        description="Product name; the configured default is used when omitted",
+    ),
     response_format: _LatestVersionFormat = Query(
         _LatestVersionFormat.JSON,
         alias="format",
@@ -60,7 +66,10 @@ async def get_latest_release_version(
     """Get the latest active release version (public endpoint, no analytics tracking)."""
     offset = 0
     limit = 1
-    cache_key = CACHE_KEY_ACTIVE_RELEASES_PAGE.format(product=product, offset=offset, limit=limit)
+    product_name, product_id = await _resolve_product(product)
+    cache_key = CACHE_KEY_ACTIVE_RELEASES_PAGE.format(
+        product=product_name, offset=offset, limit=limit
+    )
     cache: CacheProtocol = get_cache()
     response_result: PaginatedResponse[ReleasePublicResponse] | None = None
 
@@ -71,7 +80,8 @@ async def get_latest_release_version(
     if response_result is None:
         logger.debug("[API] Public: Latest release not found in cache, getting from database")
         response_result = await _get_active_release_page(
-            product_name=product,
+            product_name=product_name,
+            product_id=product_id,
             offset=offset,
             limit=limit,
         )
@@ -93,7 +103,12 @@ async def get_active_releases(
     background_tasks: BackgroundTasks,
     offset: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(10, ge=1, le=100, description="Maximum number of items to return"),
-    product: str = Query(DEFAULT_PRODUCT_NAME, min_length=1, max_length=128),
+    product: str | None = Query(
+        None,
+        min_length=1,
+        max_length=128,
+        description="Product name; the configured default is used when omitted",
+    ),
     current_version: str | None = Query(None, description="Current client version"),
     install_id: str | None = Query(None, description="Installation ID"),
     is_corporate: bool | None = Query(None, description="Indicates if the client is corporate"),
@@ -104,9 +119,12 @@ async def get_active_releases(
     logger.debug("[API] Public: Getting active releases (offset=%i, limit=%i)", offset, limit)
 
     settings = get_app_settings()
+    product_name, product_id = await _resolve_product(product)
     cached_result: dict[str, Any] | None = None
     cache: CacheProtocol = get_cache()
-    cache_key = CACHE_KEY_ACTIVE_RELEASES_PAGE.format(product=product, offset=offset, limit=limit)
+    cache_key = CACHE_KEY_ACTIVE_RELEASES_PAGE.format(
+        product=product_name, offset=offset, limit=limit
+    )
     if settings.flags.api_cache_enabled:
         cached_data = await cache.get(cache_key)
         cached_result = cached_data if cached_data and isinstance(cached_data, dict) else None
@@ -128,7 +146,8 @@ async def get_active_releases(
             limit,
         )
         response_result = await _get_active_release_page(
-            product_name=product,
+            product_name=product_name,
+            product_id=product_id,
             offset=offset,
             limit=limit,
         )
@@ -156,6 +175,7 @@ async def get_active_releases(
                 client_ip_address=request.client.host if request.client else None,
                 client_user_agent=request.headers.get("user-agent"),
                 client_ref_url=request.headers.get("referer"),
+                requested_product=product_name,
                 response_latest_version=_get_latest_version(response_result),
                 response_status=response_status,
                 response_time_ms=(time.time() - start_time) * 1000,
@@ -175,19 +195,22 @@ def _get_latest_version(response_result: PaginatedResponse[ReleasePublicResponse
 
 async def _get_active_release_page(
     product_name: str,
+    product_id: int | None,
     offset: int,
     limit: int,
 ) -> PaginatedResponse[ReleasePublicResponse]:
     """Load an active release page for the product identified by its name."""
     async with SASessionUOW() as uow:
-        product = await ProductRepository(session=uow.session).get_by_name(product_name)
-        if product is None:
-            return PaginatedResponse[ReleasePublicResponse](
-                items=[], total=0, offset=offset, limit=limit
-            )
+        if product_id is None:
+            product = await ProductRepository(session=uow.session).get_by_name(product_name)
+            if product is None:
+                return PaginatedResponse[ReleasePublicResponse](
+                    items=[], total=0, offset=offset, limit=limit
+                )
+            product_id = product.id
 
         releases, total = await ReleaseRepository(session=uow.session).get_active_releases(
-            product_id=product.id,
+            product_id=product_id,
             offset=offset,
             limit=limit,
         )
@@ -197,6 +220,15 @@ async def _get_active_release_page(
             offset=offset,
             limit=limit,
         )
+
+
+async def _resolve_product(product_name: str | None) -> tuple[str, int | None]:
+    """Resolve an omitted product while leaving explicit lookups name-based."""
+    if product_name is not None:
+        return product_name, None
+
+    default_product = await get_default_product()
+    return default_product.name, default_product.id
 
 
 def _get_cached_release_page(

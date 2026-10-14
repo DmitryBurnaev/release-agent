@@ -28,6 +28,7 @@ class ReleasesAnalyticsSchema(BaseModel):
     client_ip_address: str | None = Field(description="IP address of the client")
     client_user_agent: str | None = Field(description="User agent of the client")
     client_ref_url: str | None = Field(description="Referer URL of the client")
+    requested_product: str = Field(description="Product requested by the client")
     response_latest_version: str | None = Field(description="Latest version provided to the client")
     response_status: int = Field(description="HTTP response status code")
     response_time_ms: float | None = Field(description="Time to generate the response in ms")
@@ -47,6 +48,7 @@ class ReleasesAnalyticsSchema(BaseModel):
                 client_ip_address Nullable(String),
                 client_user_agent Nullable(String),
                 client_ref_url Nullable(String),
+                requested_product LowCardinality(String) DEFAULT '',
                 response_latest_version Nullable(String),
                 response_status UInt16,
                 response_time_ms Nullable(Float32),
@@ -162,8 +164,22 @@ class AsyncClickHouseConnectors:
             await self.client.command(create_table_query)
             logger.debug("[CH] Table %s created or already exists", table_name)
 
+            logger.info(
+                "[CH] Ensuring requested_product column exists in table %s",
+                table_name,
+            )
+            await self.client.command(
+                f"ALTER TABLE {table_name} "
+                "ADD COLUMN IF NOT EXISTS requested_product "
+                "LowCardinality(String) DEFAULT ''"
+            )
+            logger.info(
+                "[CH] requested_product column is ready in table %s",
+                table_name,
+            )
+
         except Exception as e:
-            logger.warning("[CH] Failed to create table: %r", e)
+            logger.warning("[CH] Failed to prepare analytics table: %r", e)
             raise
 
 

@@ -198,6 +198,31 @@ class ProductRepository(BaseRepository[Product]):
         products = await self.all(name=name)
         return products[0] if products else None
 
+    async def get_default_or_only(self) -> Product | None:
+        """Get the configured default product or fall back to the only product."""
+        default_product = await self.session.scalar(
+            select(self.model).where(self.model.is_default.is_(True))
+        )
+        if default_product is not None:
+            return default_product
+
+        products = list(
+            (
+                await self.session.scalars(
+                    select(self.model).order_by(self.model.id).limit(2)
+                )
+            ).all()
+        )
+        return products[0] if len(products) == 1 else None
+
+    async def clear_default(self, exclude_id: int | None = None) -> None:
+        """Clear the default flag, optionally keeping one product unchanged."""
+        statement = update(self.model).where(self.model.is_default.is_(True))
+        if exclude_id is not None:
+            statement = statement.where(self.model.id != exclude_id)
+        await self.session.execute(statement.values(is_default=False))
+        await self.session.flush()
+
 
 class ReleaseRepository(BaseRepository[Release]):
     """Release's repository."""
