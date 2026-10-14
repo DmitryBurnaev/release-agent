@@ -35,6 +35,7 @@ def test_generate_release_request_analytics_uses_configured_range() -> None:
         now - timedelta(days=30) <= row.timestamp <= now + timedelta(days=30) for row in rows
     )
     assert any(row.client_ref_url and "internal.example" in row.client_ref_url for row in rows)
+    assert all(row.requested_product == "" for row in rows)
 
 
 @pytest.mark.asyncio
@@ -50,6 +51,7 @@ async def test_seed_release_request_analytics_inserts_generated_rows() -> None:
         client_ip_address="198.51.100.10",
         client_user_agent="ReleaseAgentClient/1.0",
         client_ref_url="https://customer-1.example.test/releases",
+        requested_product="",
         response_latest_version="2.0.0",
         response_status=200,
         response_time_ms=42.5,

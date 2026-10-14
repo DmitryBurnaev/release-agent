@@ -22,15 +22,30 @@ def upgrade() -> None:
         "products",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=128), nullable=False),
+        sa.Column(
+            "is_default",
+            sa.Boolean(),
+            server_default=sa.false(),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("name"),
     )
-    op.execute(sa.text("INSERT INTO products (name) VALUES ('default')"))
+    op.create_index(
+        "uq_products_single_default",
+        "products",
+        ["is_default"],
+        unique=True,
+        postgresql_where=sa.text("is_default"),
+    )
+    op.execute(
+        sa.text("INSERT INTO products (name, is_default) VALUES ('default', true)")
+    )
     op.add_column("releases", sa.Column("product_id", sa.Integer(), nullable=True))
     op.execute(
         sa.text(
             "UPDATE releases SET product_id = products.id "
-            "FROM products WHERE products.name = 'default'"
+            "FROM products WHERE products.is_default IS TRUE"
         )
     )
     op.alter_column("releases", "product_id", existing_type=sa.Integer(), nullable=False)
@@ -55,4 +70,5 @@ def downgrade() -> None:
     op.create_unique_constraint("releases_version_key", "releases", ["version"])
     op.drop_constraint("fk_releases_product_id_products", "releases", type_="foreignkey")
     op.drop_column("releases", "product_id")
+    op.drop_index("uq_products_single_default", table_name="products", if_exists=True)
     op.drop_table("products")

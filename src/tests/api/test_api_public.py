@@ -6,7 +6,8 @@ from starlette.testclient import TestClient
 from starlette.background import BackgroundTasks
 
 from src.db.clickhouse import ReleasesAnalyticsSchema
-from src.constants import DEFAULT_PRODUCT_NAME
+from src.exceptions import InstanceLookupError
+from src.services.products import ProductIdentity
 
 
 def make_latest_cache_payload(version: str = "2026.3.4") -> dict[str, Any]:
@@ -66,6 +67,16 @@ def mock_product_lookup() -> Generator[AsyncMock, None, None]:
         yield mock_lookup
 
 
+@pytest.fixture(autouse=True)
+def mock_default_product() -> Generator[AsyncMock, None, None]:
+    with patch(
+        "src.modules.api.public.get_default_product",
+        new_callable=AsyncMock,
+        return_value=ProductIdentity(id=42, name="podcasts"),
+    ) as mock_default:
+        yield mock_default
+
+
 @pytest.fixture
 def mock_release_cache() -> Generator[MagicMock, None, None]:
     with patch("src.modules.api.public.get_cache") as mock_get_cache:
@@ -94,7 +105,7 @@ class TestPublicReleasesAPI:
         assert "offset" in data
         assert "limit" in data
         assert "product" not in data["items"][0]
-        mock_product_lookup.assert_awaited_once_with(DEFAULT_PRODUCT_NAME)
+        mock_product_lookup.assert_not_awaited()
         mock_cached_releases.assert_awaited_once_with(product_id=42, offset=0, limit=10)
 
     def test_get_active_releases_with_analytics_params(self, client: TestClient) -> None:
@@ -161,6 +172,7 @@ class TestPublicReleasesAPI:
         assert request.client_ip_address is not None
         assert request.client_user_agent == "test_user_agent"
         assert request.client_ref_url == "test_ref_url"
+        assert request.requested_product == "podcasts"
         assert request.response_latest_version == "2025.12.100"
         assert request.response_status == 200
         assert request.response_time_ms is not None
@@ -242,7 +254,7 @@ class TestPublicReleasesAPI:
         response = client.get("/public/releases/latest")
 
         assert response.status_code == 200
-        mock_release_cache.get.assert_awaited_once_with("active_releases_page_default_0_1")
+        mock_release_cache.get.assert_awaited_once_with("active_releases_page_podcasts_0_1")
         mock_release_cache.set.assert_not_awaited()
         mock_cached_releases.assert_not_awaited()
 
@@ -262,7 +274,7 @@ class TestPublicReleasesAPI:
         mock_cached_releases.assert_awaited_once_with(product_id=42, offset=0, limit=1)
         mock_release_cache.set.assert_awaited_once()
         cache_key, cache_payload = mock_release_cache.set.await_args.args
-        assert cache_key == "active_releases_page_default_0_1"
+        assert cache_key == "active_releases_page_podcasts_0_1"
         assert cache_payload["items"][0]["version"] == "2025.12.100"
         assert cache_payload["offset"] == 0
         assert cache_payload["limit"] == 1
@@ -311,6 +323,53 @@ class TestPublicReleasesAPI:
         mock_release_cache.get.assert_awaited_once_with("active_releases_page_mobile_0_10")
         mock_product_lookup.assert_awaited_once_with("mobile")
         mock_cached_releases.assert_awaited_once_with(product_id=42, offset=0, limit=10)
+
+    def test_explicit_product_cache_hit_does_not_query_postgres(
+        self,
+        mock_release_cache: MagicMock,
+        mock_cached_releases: MagicMock,
+        mock_product_lookup: AsyncMock,
+        mock_default_product: AsyncMock,
+        client: TestClient,
+    ) -> None:
+        """An explicit product page can be served without resolving any product in DB."""
+        mock_release_cache.get.return_value = make_latest_cache_payload("2026.3.4") | {
+            "limit": 10
+        }
+
+        response = client.get("/public/releases?product=mobile")
+
+        assert response.status_code == 200
+        mock_product_lookup.assert_not_awaited()
+        mock_default_product.assert_not_awaited()
+        mock_cached_releases.assert_not_awaited()
+
+    def test_unknown_explicit_product_name_is_written_to_analytics(
+        self,
+        mock_log_analytics: MagicMock,
+        mock_product_lookup: AsyncMock,
+        client: TestClient,
+    ) -> None:
+        mock_product_lookup.return_value = None
+
+        response = client.get("/public/releases?product=unknown")
+
+        assert response.status_code == 200
+        assert response.json()["items"] == []
+        analytics_request = mock_log_analytics.call_args.kwargs["request"]
+        assert analytics_request.requested_product == "unknown"
+
+    def test_missing_product_returns_404_when_default_is_ambiguous(
+        self,
+        mock_default_product: AsyncMock,
+        client: TestClient,
+    ) -> None:
+        mock_default_product.side_effect = InstanceLookupError("Default product not found")
+
+        response = client.get("/public/releases")
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Default product not found"
 
     def test_get_latest_version_returns_404_without_active_releases(
         self,

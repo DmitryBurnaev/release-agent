@@ -95,6 +95,7 @@ def generate_release_request_analytics(
             client_ip_address=f"198.51.100.{rng.randint(1, 254)}",
             client_user_agent=rng.choice(USER_AGENTS),
             client_ref_url=_random_ref_url(rng, ignore_domain=ignore_domain),
+            requested_product="",
             response_latest_version=rng.choice(LATEST_VERSIONS + (None,)),
             response_status=rng.choice(RESPONSE_STATUSES),
             response_time_ms=round(rng.uniform(8, 1500), 2),

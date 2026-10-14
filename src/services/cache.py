@@ -6,7 +6,7 @@ from typing import Generator, Protocol, Any, TypeAlias, Literal
 
 import redis.asyncio as aioredis
 
-from src.constants import CACHE_KEY_ACTIVE_RELEASES_PAGE
+from src.constants import CACHE_KEY_ACTIVE_RELEASES_PAGE, CACHE_KEY_DEFAULT_PRODUCT
 from src.db.redis import get_redis_client
 from src.exceptions import CacheBackendError
 from src.settings import get_app_settings
@@ -267,3 +267,11 @@ async def invalidate_release_cache() -> None:
     cache: CacheProtocol = get_cache()
     await cache.invalidate(pattern=f"{prefix}*")
     logger.info("[CACHE] Invalidated: all paginated pages with prefix %s", prefix)
+
+
+async def invalidate_product_cache() -> None:
+    """Invalidate the selected default product and all product release pages."""
+    cache: CacheProtocol = get_cache()
+    await cache.invalidate(key=CACHE_KEY_DEFAULT_PRODUCT)
+    logger.info("[CACHE] Invalidated: selected default product")
+    await invalidate_release_cache()

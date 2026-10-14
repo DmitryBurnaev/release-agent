@@ -8,9 +8,10 @@ from src.db.repositories import (
     BaseRepository,
     UserRepository,
     TokenRepository,
+    ProductRepository,
     FilterT,
 )
-from src.db.models import User, Token
+from src.db.models import Product, User, Token
 from src.exceptions import InstanceLookupError
 
 
@@ -189,6 +190,67 @@ class TestBaseRepository:
 
         # Should not raise any exceptions
         assert statement is not None
+
+
+class TestProductRepository:
+    @pytest.fixture
+    def mock_session(self) -> AsyncMock:
+        return AsyncMock(spec=AsyncSession)
+
+    @pytest.fixture
+    def product_repo(self, mock_session: AsyncMock) -> ProductRepository:
+        return ProductRepository(mock_session)
+
+    @pytest.mark.asyncio
+    async def test_get_default_prefers_flagged_product(
+        self, product_repo: ProductRepository
+    ) -> None:
+        product = Product(id=2, name="podcasts", is_default=True)
+        product_repo.session.scalar = AsyncMock(return_value=product)
+
+        result = await product_repo.get_default_or_only()
+
+        assert result is product
+        product_repo.session.scalars.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_get_default_falls_back_to_only_product(
+        self, product_repo: ProductRepository
+    ) -> None:
+        product = Product(id=3, name="docker", is_default=False)
+        products = MagicMock()
+        products.all.return_value = [product]
+        product_repo.session.scalar = AsyncMock(return_value=None)
+        product_repo.session.scalars = AsyncMock(return_value=products)
+
+        result = await product_repo.get_default_or_only()
+
+        assert result is product
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("products", [[], [Product(id=1, name="one"), Product(id=2, name="two")]])
+    async def test_get_default_returns_none_when_fallback_is_ambiguous(
+        self,
+        product_repo: ProductRepository,
+        products: list[Product],
+    ) -> None:
+        scalar_result = MagicMock()
+        scalar_result.all.return_value = products
+        product_repo.session.scalar = AsyncMock(return_value=None)
+        product_repo.session.scalars = AsyncMock(return_value=scalar_result)
+
+        assert await product_repo.get_default_or_only() is None
+
+    @pytest.mark.asyncio
+    async def test_clear_default_flushes_bulk_update(
+        self, product_repo: ProductRepository
+    ) -> None:
+        await product_repo.clear_default(exclude_id=7)
+
+        product_repo.session.execute.assert_awaited_once()
+        product_repo.session.flush.assert_awaited_once()
+        statement = product_repo.session.execute.await_args.args[0]
+        assert "products.id !=" in str(statement)
 
 
 class TestUserRepository:

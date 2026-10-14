@@ -111,9 +111,22 @@ class Product(BaseModel):
     """A product with its own independently versioned releases."""
 
     __tablename__ = "products"
+    __table_args__ = (
+        sa.Index(
+            "uq_products_single_default",
+            "is_default",
+            unique=True,
+            postgresql_where=sa.text("is_default"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(128), nullable=False, unique=True)
+    is_default: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, default=False, server_default=sa.false()
+    )
+
+    # relations
     releases: Mapped[list["Release"]] = relationship(back_populates="product")
 
     def __str__(self) -> str:
@@ -137,6 +150,7 @@ class Release(BaseModel):
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(nullable=True, onupdate=utcnow)
 
+    # relations
     product: Mapped[Product] = relationship(back_populates="releases", lazy="joined")
 
     __table_args__ = (sa.UniqueConstraint("product_id", "version"),)

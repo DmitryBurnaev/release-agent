@@ -13,6 +13,7 @@ from src.db.repositories import ProductRepository, ReleaseRepository
 from src.db.services import SASessionUOW
 from src.db.dependencies import get_uow_with_session
 from src.services.cache import invalidate_release_cache
+from src.services.products import get_default_product
 from src.utils import utcnow
 from src.exceptions import InstanceLookupError
 
@@ -71,19 +72,25 @@ async def create_release(
     uow: SASessionUOW = Depends(get_uow_with_session),
 ) -> ReleaseDetailsResponse:
     """Create a new release (admin endpoint, requires authentication)"""
+    release_info = release_data.model_dump(exclude_unset=True)
+    product_name = release_info.pop("product", None)
+    default_product = await get_default_product() if product_name is None else None
+
     async with uow:
         repo = ReleaseRepository(session=uow.session)
-        release_info = release_data.model_dump(exclude_unset=True)
         release_info.setdefault("is_active", False)
         # TODO: fix that! (default values should be provided in model)
         release_info.setdefault("notes", "")
         release_info.setdefault("url", "")
         release_info.setdefault("published_at", utcnow())
-        product_name = release_info.pop("product")
-        product = await ProductRepository(session=uow.session).get_by_name(product_name)
-        if product is None:
-            raise InstanceLookupError(f"Product '{product_name}' not found")
-        release_info["product_id"] = product.id
+        if product_name is None:
+            assert default_product is not None
+            release_info["product_id"] = default_product.id
+        else:
+            product = await ProductRepository(session=uow.session).get_by_name(product_name)
+            if product is None:
+                raise InstanceLookupError(f"Product '{product_name}' not found")
+            release_info["product_id"] = product.id
         release = await repo.create(value=release_info)
         uow.mark_for_commit()
 
