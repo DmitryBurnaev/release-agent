@@ -4,6 +4,7 @@ from typing import cast, Any, Callable
 import functools
 
 from sqladmin import action
+from sqladmin._types import ColumnFilter
 from sqladmin.filters import ForeignKeyFilter
 from sqlalchemy import Select, select, func
 from wtforms import HiddenField
@@ -126,12 +127,27 @@ class ReleaseAdminView(BaseModelView, model=Release):
         Release.url,
     )
     column_default_li = ()
-    column_filters = [ForeignKeyFilter(Release.product_id, Product.name, title="Продукт")]
     form_overrides = dict(notes=HiddenField)
+    _has_multiple_products = False
     _cached_query: ReleaseSelectT
     update_model = _invalidate_releases(BaseModelView.update_model)
     insert_model = _invalidate_releases(BaseModelView.insert_model)
     delete_model = _invalidate_releases(BaseModelView.delete_model)
+
+    async def list_context(self, request: Request) -> dict[str, Any]:
+        """Store whether the product filter is useful for the current request."""
+        async with SASessionUOW() as uow:
+            product_ids = await uow.session.scalars(select(Product.id).limit(2))
+
+        self._has_multiple_products = len(product_ids.all()) > 1
+        return await super().list_context(request)
+
+    def get_filters(self) -> list[ColumnFilter]:
+        """Hide the product filter when releases belong to a single product."""
+        if not self._has_multiple_products:
+            return []
+
+        return [ForeignKeyFilter(Release.product_id, Product.name, title="Продукт")]
 
     def list_query(self, request: Request) -> ReleaseSelectT:
         """Search licenses by requested filters"""
