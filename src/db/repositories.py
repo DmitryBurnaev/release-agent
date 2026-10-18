@@ -207,11 +207,7 @@ class ProductRepository(BaseRepository[Product]):
             return default_product
 
         products = list(
-            (
-                await self.session.scalars(
-                    select(self.model).order_by(self.model.id).limit(2)
-                )
-            ).all()
+            (await self.session.scalars(select(self.model).order_by(self.model.id).limit(2))).all()
         )
         return products[0] if len(products) == 1 else None
 

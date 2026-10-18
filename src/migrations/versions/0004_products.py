@@ -38,9 +38,7 @@ def upgrade() -> None:
         unique=True,
         postgresql_where=sa.text("is_default"),
     )
-    op.execute(
-        sa.text("INSERT INTO products (name, is_default) VALUES ('default', true)")
-    )
+    op.execute(sa.text("INSERT INTO products (name, is_default) VALUES ('default', true)"))
     op.add_column("releases", sa.Column("product_id", sa.Integer(), nullable=True))
     op.execute(
         sa.text(

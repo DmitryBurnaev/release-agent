@@ -228,7 +228,9 @@ class TestProductRepository:
         assert result is product
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("products", [[], [Product(id=1, name="one"), Product(id=2, name="two")]])
+    @pytest.mark.parametrize(
+        "products", [[], [Product(id=1, name="one"), Product(id=2, name="two")]]
+    )
     async def test_get_default_returns_none_when_fallback_is_ambiguous(
         self,
         product_repo: ProductRepository,
@@ -242,9 +244,7 @@ class TestProductRepository:
         assert await product_repo.get_default_or_only() is None
 
     @pytest.mark.asyncio
-    async def test_clear_default_flushes_bulk_update(
-        self, product_repo: ProductRepository
-    ) -> None:
+    async def test_clear_default_flushes_bulk_update(self, product_repo: ProductRepository) -> None:
         await product_repo.clear_default(exclude_id=7)
 
         product_repo.session.execute.assert_awaited_once()
