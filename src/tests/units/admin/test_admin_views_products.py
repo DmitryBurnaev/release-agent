@@ -37,9 +37,7 @@ async def test_insert_default_product_switches_default_and_invalidates_cache() -
 
     assert result is product
     repository.clear_default.assert_awaited_once_with()
-    repository.create.assert_awaited_once_with(
-        value={"name": "podcasts", "is_default": True}
-    )
+    repository.create.assert_awaited_once_with(value={"name": "podcasts", "is_default": True})
     assert uow.mark_for_commit.called
     invalidate.assert_awaited_once_with()
 
@@ -67,9 +65,7 @@ async def test_update_product_can_clear_default_without_switching_another() -> N
 
     assert result is product
     repository.clear_default.assert_not_awaited()
-    repository.update.assert_awaited_once_with(
-        product, name="podcasts", is_default=False
-    )
+    repository.update.assert_awaited_once_with(product, name="podcasts", is_default=False)
     invalidate.assert_awaited_once_with()
 
 
@@ -95,9 +91,7 @@ async def test_update_default_product_can_rename_and_keep_default_flag() -> None
         )
 
     repository.clear_default.assert_awaited_once_with(exclude_id=2)
-    repository.update.assert_awaited_once_with(
-        product, name="podcasts", is_default=True
-    )
+    repository.update.assert_awaited_once_with(product, name="podcasts", is_default=True)
 
 
 @pytest.mark.asyncio
@@ -116,9 +110,7 @@ async def test_failed_product_save_does_not_invalidate_cache() -> None:
         ) as invalidate,
         pytest.raises(RuntimeError, match="save failed"),
     ):
-        await ProductAdminView().insert_model(
-            MagicMock(), {"name": "podcasts", "is_default": True}
-        )
+        await ProductAdminView().insert_model(MagicMock(), {"name": "podcasts", "is_default": True})
 
     invalidate.assert_not_awaited()
     assert context.__aexit__.await_args.args[0] is RuntimeError

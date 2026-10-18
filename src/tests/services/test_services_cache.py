@@ -66,9 +66,5 @@ class TestCache:
         with patch("src.services.cache.get_cache", return_value=cache):
             await invalidate_product_cache()
 
-        assert cache.invalidate.await_args_list[0].kwargs == {
-            "key": CACHE_KEY_DEFAULT_PRODUCT
-        }
-        assert cache.invalidate.await_args_list[1].kwargs == {
-            "pattern": "active_releases_page_*"
-        }
+        assert cache.invalidate.await_args_list[0].kwargs == {"key": CACHE_KEY_DEFAULT_PRODUCT}
+        assert cache.invalidate.await_args_list[1].kwargs == {"pattern": "active_releases_page_*"}

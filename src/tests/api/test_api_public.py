@@ -333,9 +333,7 @@ class TestPublicReleasesAPI:
         client: TestClient,
     ) -> None:
         """An explicit product page can be served without resolving any product in DB."""
-        mock_release_cache.get.return_value = make_latest_cache_payload("2026.3.4") | {
-            "limit": 10
-        }
+        mock_release_cache.get.return_value = make_latest_cache_payload("2026.3.4") | {"limit": 10}
 
         response = client.get("/public/releases?product=mobile")
 
