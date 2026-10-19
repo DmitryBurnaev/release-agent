@@ -20,6 +20,8 @@ from src.db import (
 from src.db.clickhouse import initialize_clickhouse, close_clickhouse
 from src.services.analytics_seed import seed_release_request_analytics
 from src.settings.db import get_clickhouse_settings
+from src.modules.cli.seed_releases import seed_releases_command
+from src.modules.cli.load_test import load_test_command
 
 DEFAULT_ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "admin")
 MIN_PASSWORD_LENGTH: int = int(os.getenv("MIN_PASSWORD_LENGTH", "16"))
@@ -152,6 +154,8 @@ def seed_analytics_command(
 
 cli.add_command(change_admin_password)
 cli.add_command(seed_analytics_command)
+cli.add_command(seed_releases_command)
+cli.add_command(load_test_command)
 
 
 if __name__ == "__main__":

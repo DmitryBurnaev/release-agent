@@ -115,6 +115,72 @@ For detailed server installation instructions, see [INSTALL.md](INSTALL.md).
    ```
 
 
+4. Sequential releases in PostgreSQL
+
+   ```bash
+   make seed-releases
+   # Optional inclusive range (YEAR.MONTH.PATCH, patch is 1 or 2):
+   make seed-releases RELEASES_SEED_START=2023.1.1 RELEASES_SEED_END=2026.9.2
+
+   # Direct Click command:
+   uv run python -m src.modules.cli.management seed-releases --start 2023.1.1 --end 2026.9.2
+   ```
+
+   Requires configured `DB_*` settings and applied migrations. Creates 90 active releases
+   by default, two per month, published on the 1st and 15th. Existing versions are
+   skipped without changing their contents or activation state. Redis cache is cleared
+   using the application's settings; Redis must be available when `FLAG_USE_REDIS=true`.
+   With in-memory cache, restart the running server after seeding.
+
+5. HTTP load test
+
+   Set `RELEASES_URL` to the full endpoint URL, ending in `/public/releases/`.
+
+   ```bash
+   make load-test RELEASES_URL="$RELEASES_URL"
+   make load-test RELEASES_URL="$RELEASES_URL" LOAD_TEST_REQUESTS=150000 LOAD_TEST_CONCURRENCY=10 LOAD_TEST_TIMEOUT=30 LOAD_TEST_PROGRESS_EVERY=10000
+   # Repeatable mix of 100,000 requests from exactly 1,000 installation IDs:
+   make load-test RELEASES_URL="$RELEASES_URL" LOAD_TEST_INSTALLATIONS=1000 LOAD_TEST_RANDOM_SEED=42
+
+   # Direct Click command:
+   uv run python -m src.modules.cli.management load-test --url "$RELEASES_URL" --installations 1000 --random-seed 42
+   ```
+
+   Both Make targets run the existing Click commands via `uv run python` and require `.env`,
+   like the other management targets. `LOAD_TEST_REQUESTS`, `LOAD_TEST_CONCURRENCY`,
+   `LOAD_TEST_TIMEOUT`, and `LOAD_TEST_PROGRESS_EVERY` default to 100000, 20, 30, and 5000.
+   `LOAD_TEST_INSTALLATIONS` defaults to 1000; `LOAD_TEST_RANDOM_SEED` is optional.
+
+   Defaults to 100,000 GET requests and 20 concurrent workers. Concurrency is configurable
+   from 1 to 20; smaller request counts are supported for smoke tests. Connections are
+   reused, and only the configured number of workers is created. Requests use an evenly
+   distributed, shuffled pool of installation IDs: with the defaults, each of 1000 IDs
+   appears exactly 100 times. If there are fewer requests than installations, the pool
+   shrinks to the request count. Each run generates a new ID pool; `--random-seed` repeats
+   both IDs and request data independently of concurrency and response order.
+
+   Each request randomizes `current_version` (2023.1.1–2026.9.2), `is_corporate`,
+   `is_internal`, `offset`, and `limit`, plus User-Agent, Accept-Language, and optional
+   Referer headers. Generated query parameters replace matching parameters in the URL;
+   other query parameters are preserved. The IP is randomized within documentation-only
+   ranges (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24) and sent consistently in
+   `X-Forwarded-For`, `X-Real-IP`, and `Forwarded`. Referers use synthetic `.example.test`
+   hosts. These headers do not change the actual network source address. Analytics reads
+   `request.client.host`, so recording the synthetic IP requires Uvicorn proxy headers
+   and trust for the load generator's connection source (`--forwarded-allow-ips`). The
+   Docker entrypoint already configures this; other server launch methods may need it.
+
+   Progress is printed every 5,000 requests (`--progress-every 0`
+   disables it). The final summary includes throughput, HTTP statuses, and transport
+   errors; any non-2xx response or transport error gives a nonzero exit code. The request
+   count means attempts; failures are counted and are not retried. Redirects are not
+   followed, so use the trailing slash. Analytics rows depend on the server's
+   `FLAG_API_ANALYTICS_ENABLED` setting and successful ClickHouse background inserts;
+   100,000 HTTP attempts do not guarantee 100,000 analytics rows.
+
+   Both commands can also run as standalone modules: `src.modules.cli.seed_releases`
+   and `src.modules.cli.load_test`. The standalone load test needs no database or app secrets.
+
 ## Swagger Documentation
 
 When enabled, the Swagger documentation is available at `/docs` and ReDoc at `/redoc`.

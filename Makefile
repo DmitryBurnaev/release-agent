@@ -5,6 +5,13 @@ MAKEFILE_TARGET := $(filter-out --help Makefile,$(MAKECMDGOALS))
 
 ANALYTICS_SEED_ROWS ?= 500
 ANALYTICS_SEED_DAYS_RANGE ?= 30
+RELEASES_SEED_START ?= 2023.1.1
+RELEASES_SEED_END ?= 2026.9.2
+LOAD_TEST_REQUESTS ?= 100000
+LOAD_TEST_CONCURRENCY ?= 20
+LOAD_TEST_TIMEOUT ?= 30
+LOAD_TEST_PROGRESS_EVERY ?= 5000
+LOAD_TEST_INSTALLATIONS ?= 1000
 
 .PHONY: help
 help: ## This help
@@ -85,3 +92,12 @@ secrets: .env ## Create new secrets
 seed-analytics: .env ## Fill ClickHouse analytics table with fake release requests
 	@echo Analytics: seeding ClickHouse release request data...
 	uv run python -m src.modules.cli.management seed-analytics --rows "$(ANALYTICS_SEED_ROWS)" --days-range "$(ANALYTICS_SEED_DAYS_RANGE)" $(if $(ANALYTICS_SEED_RANDOM_SEED),--random-seed "$(ANALYTICS_SEED_RANDOM_SEED)",)
+
+.PHONY: seed-releases
+seed-releases: .env ## Fill PostgreSQL with sequential active releases
+	@echo Releases: seeding PostgreSQL release data...
+	uv run python -m src.modules.cli.management seed-releases --start "$(RELEASES_SEED_START)" --end "$(RELEASES_SEED_END)"
+
+.PHONY: load-test
+load-test: .env ## Send GET requests to RELEASES_URL with at most 20 concurrent workers
+	uv run python -m src.modules.cli.management load-test --url "$(RELEASES_URL)" --requests "$(LOAD_TEST_REQUESTS)" --concurrency "$(LOAD_TEST_CONCURRENCY)" --timeout "$(LOAD_TEST_TIMEOUT)" --progress-every "$(LOAD_TEST_PROGRESS_EVERY)" --installations "$(LOAD_TEST_INSTALLATIONS)" $(if $(LOAD_TEST_RANDOM_SEED),--random-seed "$(LOAD_TEST_RANDOM_SEED)",)
