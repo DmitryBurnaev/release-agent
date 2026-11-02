@@ -61,12 +61,11 @@ def test_invalid_release_range(start: str, end: str) -> None:
         generate_releases(start, end)
 
 
-@pytest.mark.parametrize("inserted", [0, 2])
+@pytest.mark.parametrize("inserted", [0, 1, 2])
 async def test_seed_inserts_atomically_without_overwriting_existing_versions(inserted: int) -> None:
     rows = generate_releases("2026.9.1", "2026.9.2")
     session = AsyncMock()
-    session.scalars.return_value = MagicMock()
-    session.scalars.return_value.all.return_value = ["version"] * inserted
+    session.scalar.return_value = inserted
     factory = MagicMock()
     factory.begin.return_value.__aenter__.return_value = session
     settings = MagicMock()
@@ -81,10 +80,14 @@ async def test_seed_inserts_atomically_without_overwriting_existing_versions(ins
         patch("src.modules.cli.seed_releases.invalidate_release_cache") as invalidate,
     ):
         assert await seed_releases(rows) == inserted
-    statement = session.scalars.call_args.args[0]
+    session.scalar.assert_awaited_once()
+    statement = session.scalar.call_args.args[0]
     compiled = str(statement.compile(dialect=postgresql.dialect()))
+    assert "WITH inserted_releases AS" in compiled
     assert "ON CONFLICT (version) DO NOTHING" in compiled
     assert "RETURNING releases.version" in compiled
+    assert "SELECT count(*)" in compiled
+    assert "FROM inserted_releases" in compiled
     factory.begin.return_value.__aexit__.assert_awaited_once_with(None, None, None)
     close.assert_awaited_once()
     init_redis.assert_awaited_once()
@@ -110,8 +113,7 @@ async def test_seed_closes_database_on_failure_without_invalidating_cache() -> N
 async def test_seed_does_not_require_redis_for_memory_cache() -> None:
     factory = MagicMock()
     session = factory.begin.return_value.__aenter__.return_value
-    session.scalars.return_value = MagicMock()
-    session.scalars.return_value.all.return_value = []
+    session.scalar = AsyncMock(return_value=0)
     settings = MagicMock()
     settings.flags.use_redis = False
     with (

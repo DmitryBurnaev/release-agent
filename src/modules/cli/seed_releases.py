@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 import click
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from src.db import Release, close_database, initialize_database
@@ -66,8 +67,9 @@ async def seed_releases(rows: list[dict[str, Any]]) -> int:
                 .values(rows)
                 .on_conflict_do_nothing(index_elements=[Release.version])
                 .returning(Release.version)
+                .cte("inserted_releases")
             )
-            inserted = len((await session.scalars(statement)).all())
+            inserted = await session.scalar(select(func.count()).select_from(statement))
     finally:
         await close_database()
 
@@ -77,7 +79,7 @@ async def seed_releases(rows: list[dict[str, Any]]) -> int:
             await invalidate_release_cache()
         finally:
             await close_redis()
-    return inserted
+    return inserted or 0
 
 
 @click.command(

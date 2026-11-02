@@ -137,9 +137,10 @@ class ReleaseAdminView(BaseModelView, model=Release):
     async def list_context(self, request: Request) -> dict[str, Any]:
         """Store whether the product filter is useful for the current request."""
         async with SASessionUOW() as uow:
-            product_ids = await uow.session.scalars(select(Product.id).limit(2))
+            product_ids = select(Product.id).limit(2).subquery()
+            product_count = await uow.session.scalar(select(func.count()).select_from(product_ids))
 
-        self._has_multiple_products = len(product_ids.all()) > 1
+        self._has_multiple_products = (product_count or 0) > 1
         return await super().list_context(request)
 
     def get_filters(self) -> list[ColumnFilter]:
