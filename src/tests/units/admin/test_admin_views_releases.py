@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqladmin.filters import ForeignKeyFilter
+from sqlalchemy.dialects import postgresql
 
 from src.db.models import Product, Release
 from src.modules.admin.views.releases import ReleaseAdminView
@@ -10,16 +11,14 @@ from src.modules.admin.views.releases import ReleaseAdminView
 class TestReleaseAdminView:
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        ("product_ids", "expects_filter"),
-        [([1], False), ([1, 2], True)],
+        ("product_count", "expects_filter"),
+        [(0, False), (1, False), (2, True)],
     )
     async def test_get_filters_depends_on_product_count(
-        self, product_ids: list[int], expects_filter: bool
+        self, product_count: int, expects_filter: bool
     ) -> None:
         session = MagicMock()
-        product_id_result = MagicMock()
-        product_id_result.all.return_value = product_ids
-        session.scalars = AsyncMock(return_value=product_id_result)
+        session.scalar = AsyncMock(return_value=product_count)
         uow = MagicMock(session=session)
         uow_context = MagicMock()
         uow_context.__aenter__ = AsyncMock(return_value=uow)
@@ -34,6 +33,14 @@ class TestReleaseAdminView:
 
         filters = view.get_filters()
 
+        session.scalar.assert_awaited_once()
+        query = session.scalar.call_args.args[0]
+        compiled = str(
+            query.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+        )
+        assert "SELECT count(*)" in compiled
+        assert "FROM products" in compiled
+        assert "LIMIT 2" in compiled
         assert bool(filters) is expects_filter
         if not expects_filter:
             return
