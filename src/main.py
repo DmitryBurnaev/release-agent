@@ -15,6 +15,7 @@ from src.modules.admin.app import make_admin
 from src.exceptions import AppSettingsError, StartupError
 from src.settings import get_app_settings, AppSettings
 from src.modules.api import system_router
+from src.modules.api.system import health_check
 from src.modules.api.public import public_router as releases_public_router
 from src.modules.api.releases import admin_router as releases_router
 from src.db.session import initialize_database, close_database
@@ -124,6 +125,7 @@ def make_app(settings: AppSettings | None = None) -> ReleaseAgentAPP:
 
     logger.info("Setting up routes...")
     # Public routes (no authentication required)
+    app.add_api_route("/health/", health_check, methods=["GET"], include_in_schema=False)
     app.include_router(releases_public_router, prefix="/public")
     # Protected routes (authentication required)
     app.include_router(system_router, prefix="/api", dependencies=[Depends(verify_api_token)])
