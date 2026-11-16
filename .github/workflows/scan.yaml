@@ -1,15 +1,19 @@
 name: Scan
 
 on:
+  pull_request:
+    branches:
+      - "main"
   push:
     branches:
       - "main"
+      - "feature/33-trivy-security-scans" # Temporary: verify Trivy on this branch; remove before merge.
   schedule:
     - cron: "0 0 * * 1" # Every Monday at 00:00
 
 env:
   DOCKER_IMAGE: release-agent:scan-${{ github.sha }}
-  TRIVY_VERSION: "v0.67.2"
+  TRIVY_VERSION: "0.76.2"
   TRIVY_SEVERITY: "CRITICAL,HIGH,MEDIUM,LOW"
   OPENGREP_VERSION: "v1.11.2"
   # SQLAlchemy/SQLAdmin mapped attributes are descriptors, not missed function calls.
@@ -18,100 +22,69 @@ env:
   GITLEAKS_VERSION: "v8.28.0"
 
 jobs:
-#  trivy-image:
-#    name: trivy-image
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v4
-#
-#      - name: Prepare .env file
-#        env:
-#          PWD: $(PWD)
-#        run: |
-#          cp .env.template .env
-#          env >> .env
-#
-#      - name: Build image
-#        env:
-#          DOCKER_IMAGE: ${{ env.DOCKER_IMAGE }}
-#        run: docker compose build app
-#
-#      - name: Run Trivy Image (report)
-#        uses: aquasecurity/trivy-action@0.28.0
-#        with:
-#          version: ${{ env.TRIVY_VERSION }}
-#          scan-type: "image"
-#          image-ref: ${{ env.DOCKER_IMAGE }}
-#          format: "json"
-#          output: "${{ runner.workspace }}/trivy-image-results.json"
-#          exit-code: "0"
-#          ignore-unfixed: false
-#          vuln-type: "os,library"
-#          severity: "${{ env.TRIVY_SEVERITY }}"
-#          hide-progress: "true"
-#
-#      - name: Upload scan results
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: trivy-images-results
-#          path: ${{ runner.workspace }}/trivy-image-results.json
-#          retention-days: 60
-#
-#      - name: Run Trivy Image (alert)
-#        uses: aquasecurity/trivy-action@0.28.0
-#        with:
-#          version: ${{ env.TRIVY_VERSION }}
-#          scan-type: "image"
-#          image-ref: ${{ env.DOCKER_IMAGE }}
-#          format: "table"
-#          exit-code: "1"
-#          ignore-unfixed: false
-#          vuln-type: "os,library"
-#          severity: "${{ env.TRIVY_SEVERITY }}"
-#          hide-progress: "true"
-#
-#  trivy-fs:
-#    name: trivy-fs
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v4
-#
-#      - name: Run Trivy FS (report)
-#        uses: aquasecurity/trivy-action@0.28.0
-#        with:
-#          version: ${{ env.TRIVY_VERSION }}
-#          scan-type: "fs"
-#          scan-ref: "."
-#          format: "json"
-#          output: "${{ runner.workspace }}/trivy-fs-results.json"
-#          exit-code: "0"
-#          ignore-unfixed: false
-#          vuln-type: "os,library"
-#          severity: "${{ env.TRIVY_SEVERITY }}"
-#          hide-progress: "true"
-#
-#      - name: Upload scan results
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: trivy-fs-results
-#          path: ${{ runner.workspace }}/trivy-fs-results.json
-#          retention-days: 60
-#
-#      - name: Run Trivy FS (alert)
-#        uses: aquasecurity/trivy-action@0.28.0
-#        with:
-#          version: ${{ env.TRIVY_VERSION }}
-#          scan-type: "fs"
-#          scan-ref: "."
-#          format: "table"
-#          exit-code: "1"
-#          ignore-unfixed: false
-#          vuln-type: "os,library"
-#          severity: "${{ env.TRIVY_SEVERITY }}"
-#          hide-progress: "true"
+  trivy:
+    name: trivy-${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [image, fs]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install Trivy
+        run: |
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            --output "${RUNNER_TEMP}/trivy.tar.gz"
+          echo "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf  ${RUNNER_TEMP}/trivy.tar.gz" | sha256sum --check
+          tar -xzf "${RUNNER_TEMP}/trivy.tar.gz" -C "${RUNNER_TEMP}" trivy
+
+      - name: Build service image
+        if: matrix.target == 'image'
+        run: |
+          docker build --target service --tag "${DOCKER_IMAGE}" .
+          docker image inspect "${DOCKER_IMAGE}" --format '{{.Id}} {{.Architecture}}'
+
+      - name: Scan image
+        if: matrix.target == 'image'
+        run: |
+          "${RUNNER_TEMP}/trivy" image --config "" --ignorefile "" --image-src docker --scanners vuln \
+            --severity "${TRIVY_SEVERITY}" --ignore-unfixed=false --format json \
+            --output "${RUNNER_TEMP}/trivy-image.json" "${DOCKER_IMAGE}"
+
+      - name: Scan filesystem
+        if: matrix.target == 'fs'
+        run: |
+          "${RUNNER_TEMP}/trivy" fs --config "" --ignorefile "" --scanners vuln,misconfig --include-dev-deps \
+            --severity "${TRIVY_SEVERITY}" --ignore-unfixed=false --format json \
+            --output "${RUNNER_TEMP}/trivy-fs.json" .
+
+      - name: Validate report
+        run: |
+          jq -e 'type == "object" and .SchemaVersion == 2 and (.Results == null or (.Results | type == "array"))' \
+            "${RUNNER_TEMP}/trivy-${{ matrix.target }}.json" > /dev/null
+
+      - name: Upload report
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: trivy-${{ matrix.target }}
+          path: ${{ runner.temp }}/trivy-${{ matrix.target }}.json
+          retention-days: 60
+          if-no-files-found: error
+
+      - name: Enforce findings
+        run: |
+          "${RUNNER_TEMP}/trivy" convert --config "" --ignorefile "" --format table --exit-code 1 \
+            --severity "${TRIVY_SEVERITY}" "${RUNNER_TEMP}/trivy-${{ matrix.target }}.json"
 
   trufflehog:
     name: trufflehog
+    if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     steps:
       - name: Install Trufflehog
@@ -138,6 +111,7 @@ jobs:
 
   gitleaks:
     name: gitleaks
+    if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     steps:
       - name: Install GitLeaks
@@ -171,6 +145,7 @@ jobs:
 
   opengrep:
     name: opengrep
+    if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
