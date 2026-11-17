@@ -1,4 +1,5 @@
 import logging
+from typing import TypeAlias
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import (
@@ -14,7 +15,7 @@ from src.settings.db import get_db_settings
 from src.utils import singleton
 
 logger = logging.getLogger(__name__)
-type sm_type = async_sessionmaker[AsyncSession]
+sm_type: TypeAlias = async_sessionmaker[AsyncSession]
 
 
 @singleton

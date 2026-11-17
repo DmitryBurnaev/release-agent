@@ -1,6 +1,6 @@
 import logging
 import datetime
-from typing import ClassVar, TYPE_CHECKING
+from typing import ClassVar, TYPE_CHECKING, TypeAlias
 
 from sqladmin import ModelView, BaseView
 from starlette.exceptions import HTTPException
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from src.main import ReleaseAgentAPP
 
 logger = logging.getLogger(__name__)
-type FormDataType = dict[str, str | int | datetime.datetime | None]
+FormDataType: TypeAlias = dict[str, str | int | datetime.datetime | None]
 __all__ = ("BaseModelView",)
 
 

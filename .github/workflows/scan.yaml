@@ -2,8 +2,7 @@ name: Scan
 
 on:
   pull_request:
-    branches:
-      - "main"
+    branches: [main]
   push:
     branches:
       - "main"
@@ -11,13 +10,11 @@ on:
   schedule:
     - cron: "0 0 * * 1" # Every Monday at 00:00
 
+permissions:
+  contents: read
+
 env:
-  DOCKER_IMAGE: release-agent:scan-${{ github.sha }}
-  TRIVY_VERSION: "0.76.2"
-  TRIVY_SEVERITY: "CRITICAL,HIGH,MEDIUM,LOW"
-  OPENGREP_VERSION: "v1.11.2"
-  # SQLAlchemy/SQLAdmin mapped attributes are descriptors, not missed function calls.
-  OPENGREP_SQLALCHEMY_FALSE_POSITIVE_RULE: "opengrep-rules.python.lang.maintainability.is-function-without-parentheses"
+  OPENGREP_VERSION: "v1.33.1"
   TRUFFLEHOG_VERSION: "v3.90.12"
   GITLEAKS_VERSION: "v8.28.0"
 
@@ -31,46 +28,67 @@ jobs:
       fail-fast: false
       matrix:
         target: [image, fs]
+    env:
+      TRIVY_VERSION: "0.76.2"
+      TRIVY_SEVERITY: "CRITICAL,HIGH,MEDIUM,LOW"
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           persist-credentials: false
 
-      - name: Install Trivy
+      - name: Install verified Trivy binary
+        shell: bash
         run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/trivy.tar.gz"
           curl --fail --silent --show-error --location --retry 3 \
             "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
-            --output "${RUNNER_TEMP}/trivy.tar.gz"
-          echo "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf  ${RUNNER_TEMP}/trivy.tar.gz" | sha256sum --check
-          tar -xzf "${RUNNER_TEMP}/trivy.tar.gz" -C "${RUNNER_TEMP}" trivy
+            --output "$archive"
+          echo "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf  $archive" | sha256sum --check --strict
+          tar -xzf "$archive" -C "$RUNNER_TEMP" trivy
+          "$RUNNER_TEMP/trivy" --version
 
       - name: Build service image
         if: matrix.target == 'image'
         run: |
-          docker build --target service --tag "${DOCKER_IMAGE}" .
-          docker image inspect "${DOCKER_IMAGE}" --format '{{.Id}} {{.Architecture}}'
+          docker build --platform linux/amd64 --target service \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --tag "release-agent:scan-${GITHUB_SHA}" .
+          image_id=$(docker image inspect "release-agent:scan-${GITHUB_SHA}" --format '{{.Id}}')
+          docker image inspect "$image_id" --format 'ID={{.Id}} OS={{.Os}} Arch={{.Architecture}} Revision={{index .Config.Labels "org.opencontainers.image.revision"}}'
+          echo "IMAGE_ID=$image_id" >> "$GITHUB_ENV"
 
       - name: Scan image
         if: matrix.target == 'image'
         run: |
-          "${RUNNER_TEMP}/trivy" image --config "" --ignorefile "" --image-src docker --scanners vuln \
-            --severity "${TRIVY_SEVERITY}" --ignore-unfixed=false --format json \
-            --output "${RUNNER_TEMP}/trivy-image-raw.json" "${DOCKER_IMAGE}"
-          "${RUNNER_TEMP}/trivy" convert --config "" --ignorefile "" \
-            --ignore-policy .github/scan/trivy-image-ignore.rego --format json \
-            --output "${RUNNER_TEMP}/trivy-image.json" "${RUNNER_TEMP}/trivy-image-raw.json"
+          "$RUNNER_TEMP/trivy" image --cache-dir "$RUNNER_TEMP/trivy-cache" --disable-telemetry --skip-version-check \
+            --config "" --ignorefile "" --ignore-policy .github/scan/trivy-image-ignore.rego --image-src docker --scanners vuln \
+            --severity "$TRIVY_SEVERITY" --ignore-unfixed=false --exit-code 0 \
+            --format json --output "$RUNNER_TEMP/trivy-image.json" "$IMAGE_ID"
 
       - name: Scan filesystem
         if: matrix.target == 'fs'
         run: |
-          "${RUNNER_TEMP}/trivy" fs --config "" --ignorefile "" --scanners vuln,misconfig --include-dev-deps \
-            --severity "${TRIVY_SEVERITY}" --ignore-unfixed=false --format json \
-            --output "${RUNNER_TEMP}/trivy-fs.json" .
+          "$RUNNER_TEMP/trivy" fs --cache-dir "$RUNNER_TEMP/trivy-cache" --disable-telemetry --skip-version-check \
+            --config "" --ignorefile "" --skip-check-update --scanners vuln,misconfig --include-dev-deps \
+            --severity "$TRIVY_SEVERITY" --ignore-unfixed=false --exit-code 0 \
+            --format json --output "$RUNNER_TEMP/trivy-fs.json" .
 
       - name: Validate report
+        env:
+          TARGET: ${{ matrix.target }}
         run: |
-          jq -e 'type == "object" and .SchemaVersion == 2 and (.Results == null or (.Results | type == "array"))' \
-            "${RUNNER_TEMP}/trivy-${{ matrix.target }}.json" > /dev/null
+          report="$RUNNER_TEMP/trivy-$TARGET.json"
+          jq -e 'type == "object" and .SchemaVersion == 2 and (.Results | type == "array")' "$report" > /dev/null
+          if [ "$TARGET" = image ]; then
+            jq -e --arg image_id "$IMAGE_ID" --arg revision "$GITHUB_SHA" \
+              '.ArtifactType == "container_image" and .Metadata.ImageID == $image_id and
+               .Metadata.ImageConfig.architecture == "amd64" and
+               .Metadata.ImageConfig.config.Labels["org.opencontainers.image.revision"] == $revision' "$report" > /dev/null
+          else
+            jq -e 'any(.Results[]; .Type == "uv" and .Target == "uv.lock") and
+              any(.Results[]; .Type == "dockerfile" and .Target == "Dockerfile")' "$report" > /dev/null
+          fi
 
       - name: Upload report
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -80,43 +98,51 @@ jobs:
           retention-days: 60
           if-no-files-found: error
 
-      - name: Enforce findings
+      - name: Fail on findings
         run: |
-          "${RUNNER_TEMP}/trivy" convert --config "" --ignorefile "" --format table --exit-code 1 \
-            --severity "${TRIVY_SEVERITY}" "${RUNNER_TEMP}/trivy-${{ matrix.target }}.json"
+          "$RUNNER_TEMP/trivy" convert --cache-dir "$RUNNER_TEMP/trivy-cache" \
+            --config "" --ignorefile "" --scanners vuln,misconfig \
+            --severity "$TRIVY_SEVERITY" --exit-code 1 --format table "$RUNNER_TEMP/trivy-${{ matrix.target }}.json"
 
   trufflehog:
     name: trufflehog
-    if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
+
       - name: Install Trufflehog
         run: |
           curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin ${{ env.TRUFFLEHOG_VERSION }}
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
 
       - name: Run Trufflehog FS (report)
         run: |
-          ls -lah ${{ runner.workspace }}
-          trufflehog filesystem ${{ runner.workspace }} --results=verified,unknown --json > "${{ runner.workspace }}/trufflehog-results.json"
+          set -o pipefail
+          trufflehog filesystem "${{ github.workspace }}" --results=verified,unknown --json |
+            jq -c '{DetectorName, DetectorType, DecoderName, Verified, SourceMetadata: {Data: {Filesystem: {file: .SourceMetadata.Data.Filesystem.file, line: .SourceMetadata.Data.Filesystem.line}}}}' > "${{ runner.temp }}/trufflehog-results.json"
 
       - name: Upload scan results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: trufflehog-results
-          path: "${{ runner.workspace }}/trufflehog-results.json"
+          path: "${{ runner.temp }}/trufflehog-results.json"
           retention-days: 60
 
       - name: Run Trufflehog FS (alert)
         run: |
-          trufflehog filesystem ${{ runner.workspace }} --results=verified,unknown --fail --github-actions
+          set -o pipefail
+          trufflehog filesystem "${{ github.workspace }}" --results=verified,unknown --fail --json |
+            jq -c '{DetectorName, DetectorType, DecoderName, Verified, SourceMetadata: {Data: {Filesystem: {file: .SourceMetadata.Data.Filesystem.file, line: .SourceMetadata.Data.Filesystem.line}}}}'
 
   gitleaks:
     name: gitleaks
-    if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
+
       - name: Install GitLeaks
         run: |
           git clone --branch ${{ env.GITLEAKS_VERSION }} https://github.com/gitleaks/gitleaks.git /home/runner/.gitleaks
@@ -125,37 +151,44 @@ jobs:
           pwd
           ls -lah
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
-          fetch-depth: 0 # Fetch all history for better secret detection
+          fetch-depth: 0  # Fetch all history for better secret detection
+          persist-credentials: false
 
       - name: Run Gitleaks (report)
         run: |
           export PATH='/home/runner/.gitleaks':$PATH
-          gitleaks git . --exit-code 0 --report-format json --report-path "${{ runner.workspace }}/gitleaks-results.json"
+          gitleaks git . --redact --exit-code 0 --report-format json --report-path "${{ runner.temp }}/gitleaks-results.json"
 
       - name: Upload scan results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: gitleaks-results
-          path: "${{ runner.workspace }}/gitleaks-results.json"
+          path: "${{ runner.temp }}/gitleaks-results.json"
           retention-days: 60
 
       - name: Run Gitleaks (alert)
         run: |
           export PATH='/home/runner/.gitleaks':$PATH
-          gitleaks git . --verbose
+          gitleaks git . --redact --verbose
 
   opengrep:
     name: opengrep
-    if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref == 'refs/heads/main')
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
 
       - name: Install Opengrep
         run: |
-          curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh  | bash -s -- -v ${{ env.OPENGREP_VERSION }}
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/opengrep_manylinux_x86" \
+            --output "${RUNNER_TEMP}/opengrep"
+          echo "46e8133cc490f9f50518061590ce2f6be5a08afaeda034471c0ceda4b3899808  ${RUNNER_TEMP}/opengrep" | sha256sum --check --strict
+          chmod +x "${RUNNER_TEMP}/opengrep"
 
       - name: Clone Opengrep Rules
         run: |
@@ -163,26 +196,18 @@ jobs:
 
       - name: Run Opengrep Scan (report)
         run: |
-          export PATH='/home/runner/.opengrep/cli/latest':$PATH
-          opengrep scan \
-            --config opengrep-rules/python \
-            --exclude-rule "${OPENGREP_SQLALCHEMY_FALSE_POSITIVE_RULE}" \
-            --json \
-            -o "${{ runner.workspace }}/opengrep-results.json" \
-            .
+          export PATH="${RUNNER_TEMP}:$PATH"
+          # SQLAlchemy/SQLAdmin mapped descriptors trigger this maintainability heuristic.
+          opengrep scan --config opengrep-rules/python --no-rewrite-rule-ids --exclude-rule is-function-without-parentheses --json -o "${{ runner.temp }}/opengrep-results.json" .
 
       - name: Upload scan results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: opengrep-results
-          path: "${{ runner.workspace }}/opengrep-results.json"
+          path: "${{ runner.temp }}/opengrep-results.json"
           retention-days: 60
 
       - name: Run Opengrep Scan (alert)
         run: |
-          export PATH='/home/runner/.opengrep/cli/latest':$PATH
-          opengrep scan \
-            --config opengrep-rules/python \
-            --exclude-rule "${OPENGREP_SQLALCHEMY_FALSE_POSITIVE_RULE}" \
-            --error \
-            .
+          export PATH="${RUNNER_TEMP}:$PATH"
+          opengrep scan --config opengrep-rules/python --no-rewrite-rule-ids --exclude-rule is-function-without-parentheses --strict --error .

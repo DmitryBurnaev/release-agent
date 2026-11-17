@@ -1,6 +1,6 @@
 import logging
 import datetime
-from typing import cast, Any, Callable
+from typing import cast, Any, Callable, TypeAlias
 import functools
 
 from sqladmin import action
@@ -21,7 +21,7 @@ from src.modules.admin.utils import format_datetime, format_date
 
 __all__ = ("ReleaseAdminView",)
 logger = logging.getLogger(__name__)
-type ReleaseSelectT = Select[tuple[Release]]
+ReleaseSelectT: TypeAlias = Select[tuple[Release]]
 
 
 def _make_datetime_formatter(column_name: str) -> Any:
