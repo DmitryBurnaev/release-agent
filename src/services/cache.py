@@ -15,8 +15,8 @@ from src.utils import singleton, cut_string
 logger = logging.getLogger(__name__)
 DEFAULT_CACHE_TTL: int = 3600
 CacheValueType: TypeAlias = str | list[dict[str, Any]] | dict[str, Any]
-type CacheOperation = Literal["get", "set", "invalidate", "invalidate_pattern"]
-type CacheBackend = Literal["redis", "memory"]
+CacheOperation: TypeAlias = Literal["get", "set", "invalidate", "invalidate_pattern"]
+CacheBackend: TypeAlias = Literal["redis", "memory"]
 
 
 class CacheProtocol(Protocol):

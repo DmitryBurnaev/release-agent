@@ -8,6 +8,7 @@ from typing import (
     Any,
     Sequence,
     ParamSpec,
+    TypeAlias,
     cast,
     overload,
 )
@@ -33,7 +34,7 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 RT = TypeVar("RT")
-type FilterT = int | str | list[int] | None
+FilterT: TypeAlias = int | str | list[int] | None
 
 
 @dataclasses.dataclass

@@ -1,8 +1,8 @@
 # Trivy security scans
 
 The Scan workflow runs image and filesystem jobs on pull requests to `main`,
-pushes to `main`, and the weekly schedule. The existing secret and source scans
-retain their push and scheduled events. The image job builds the `service`
+pushes to `main`, and the weekly schedule. TruffleHog, Gitleaks and Opengrep
+also run on these events. The image job builds the `service`
 Dockerfile target for the checked-out revision and scans OS and application
 packages. The filesystem job scans supported manifests, including development
 dependencies in `uv.lock`, and configuration files. These checks do not replace
@@ -13,7 +13,7 @@ without a fix. Any such finding fails its job, including LOW findings. UNKNOWN
 severity is outside this policy. Each job uploads its JSON report for 60 days
 before evaluating that same report. Scan, report validation, upload and database
 download errors also fail the job. The image-only exception below is applied to
-the saved scan before uploading the report and enforcing the finding policy.
+the image scan before uploading the report and enforcing the finding policy.
 
 The jobs use Trivy 0.76.2 and verify the Linux amd64 archive against the SHA-256
 digest in the [immutable release metadata](https://github.com/aquasecurity/trivy/releases/tag/v0.76.2).
@@ -23,6 +23,21 @@ and current advisories when updating. The GitHub-hosted runner, Docker base
 images, package sources, vulnerability database and misconfiguration checks
 remain separate trusted, dynamically updated dependencies. The workflow does
 not grant deployment credentials or persist checkout credentials.
+
+The filesystem scan uses the checks bundled with the pinned Trivy binary;
+the vulnerability database is still downloaded separately. Opengrep 1.33.1
+is downloaded from its release and verified against the SHA-256 digest in its
+[release metadata](https://github.com/opengrep/opengrep/releases/tag/v1.33.1).
+The [Windows executable search advisory](https://github.com/opengrep/opengrep/security/advisories/GHSA-p779-wpvx-j33f)
+affects versions before 1.30.2; these jobs run on Linux. Opengrep's rules are
+cloned separately and remain a mutable dependency. Gitleaks uses redaction;
+TruffleHog reports and logs retain only detector, verification and file/line
+metadata, rather than secret values. Review reports before sharing them.
+
+Opengrep 1.33.1 cannot parse PEP 695 `type` alias declarations. This project
+uses `TypeAlias` declarations so strict scans can check the affected files.
+Re-evaluate this workaround when updating Opengrep; the parser fix is included
+in [version 2.0.0](https://github.com/opengrep/opengrep/releases/tag/v2.0.0).
 
 The push trigger for `feature/33-trivy-security-scans` is temporary for CI
 verification. Remove it before merging; only the Trivy jobs run on that push.

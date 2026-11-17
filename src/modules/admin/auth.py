@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import cast, TypedDict
+from typing import cast, TypedDict, TypeAlias
 
 import jwt
 from fastapi import Request
@@ -15,7 +15,7 @@ from src.settings import AppSettings
 from src.utils import utcnow
 
 logger = logging.getLogger(__name__)
-type USER_ID = int
+USER_ID: TypeAlias = int
 
 
 class UserPayload(TypedDict):

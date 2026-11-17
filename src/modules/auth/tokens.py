@@ -3,7 +3,7 @@ import uuid
 import random
 import hashlib
 import datetime
-from typing import NamedTuple
+from typing import NamedTuple, TypeAlias
 
 import jwt
 from fastapi import Security
@@ -21,7 +21,7 @@ __all__ = (
     "verify_api_token",
 )
 
-type JWT_PAYLOAD_RAW_T = dict[str, str | int | datetime.datetime]
+JWT_PAYLOAD_RAW_T: TypeAlias = dict[str, str | int | datetime.datetime]
 
 
 class GeneratedToken(NamedTuple):
