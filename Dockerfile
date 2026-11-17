@@ -10,7 +10,7 @@ COPY etc/docker-entrypoint .
 FROM python:3.13-alpine AS requirements-layer
 WORKDIR /usr/src
 ARG DEV_DEPS="false"
-ARG UV_VERSION=0.9.9
+ARG UV_VERSION=0.9.13
 
 COPY pyproject.toml .
 COPY uv.lock .
@@ -25,11 +25,14 @@ RUN pip install uv==${UV_VERSION} && \
 
 FROM python:3.13-alpine AS base
 ARG PIP_DEFAULT_TIMEOUT=300
+ARG PIP_VERSION=26.3
 WORKDIR /app
 
 COPY --from=requirements-layer /usr/src/requirements.txt .
 
-RUN apk add gcc libc-dev --no-cache --virtual .build-dependencies && \
+RUN apk add --no-cache --upgrade 'zlib>=1.4-r0' && \
+    pip install --upgrade pip==${PIP_VERSION} && \
+    apk add gcc libc-dev --no-cache --virtual .build-dependencies && \
     pip install --timeout "${PIP_DEFAULT_TIMEOUT}" \
       --no-cache-dir --require-hashes \
       -r requirements.txt && \

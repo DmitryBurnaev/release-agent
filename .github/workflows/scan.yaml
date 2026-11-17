@@ -55,7 +55,10 @@ jobs:
         run: |
           "${RUNNER_TEMP}/trivy" image --config "" --ignorefile "" --image-src docker --scanners vuln \
             --severity "${TRIVY_SEVERITY}" --ignore-unfixed=false --format json \
-            --output "${RUNNER_TEMP}/trivy-image.json" "${DOCKER_IMAGE}"
+            --output "${RUNNER_TEMP}/trivy-image-raw.json" "${DOCKER_IMAGE}"
+          "${RUNNER_TEMP}/trivy" convert --config "" --ignorefile "" \
+            --ignore-policy .github/scan/trivy-image-ignore.rego --format json \
+            --output "${RUNNER_TEMP}/trivy-image.json" "${RUNNER_TEMP}/trivy-image-raw.json"
 
       - name: Scan filesystem
         if: matrix.target == 'fs'
